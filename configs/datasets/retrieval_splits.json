@@ -1,0 +1,27 @@
+{
+  "dataset_name": "vietnamese_legal_retrieval_rag_benchmark",
+  "version": "1.0",
+  "splits": {
+    "DEVELOPMENT": {
+      "role": "DEVELOPMENT",
+      "source_file": "data/benchmarks/retrieval_train.json",
+      "query_count": 1401,
+      "allowed_usage": "Prompt experiments, context policy tuning, top-k experiments, reranker exploration, LLM candidate testing",
+      "is_protected": false
+    },
+    "VALIDATION": {
+      "role": "VALIDATION",
+      "source_file": "data/benchmarks/retrieval_train.json",
+      "query_count": 351,
+      "allowed_usage": "Validation and tuning configuration comparison prior to final locking",
+      "is_protected": false
+    },
+    "FROZEN_TEST": {
+      "role": "FROZEN_TEST",
+      "source_file": "data/benchmarks/retrieval_test.json",
+      "query_count": 438,
+      "allowed_usage": "Final locked evaluation ONLY. Absolutely prohibited for tuning, selection, or prompting iterations.",
+      "is_protected": true
+    }
+  }
+}

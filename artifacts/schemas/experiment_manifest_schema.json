@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExperimentManifestSchema",
+  "type": "object",
+  "description": "Schema for Phase 9 experiment reproducibility manifests",
+  "required": [
+    "experiment_id",
+    "created_at",
+    "code_version",
+    "dataset",
+    "retriever",
+    "reranker",
+    "context",
+    "prompt",
+    "generation",
+    "output_schema_version",
+    "citation_policy_version",
+    "abstention_policy_version"
+  ],
+  "properties": {
+    "experiment_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "code_version": { "type": "string" },
+    "dataset": { "type": "object" },
+    "retriever": { "type": "object" },
+    "reranker": { "type": "object" },
+    "context": { "type": "object" },
+    "prompt": { "type": "object" },
+    "generation": { "type": "object" },
+    "output_schema_version": { "type": "string" },
+    "citation_policy_version": { "type": "string" },
+    "abstention_policy_version": { "type": "string" },
+    "evaluation": { "type": "object" },
+    "notes": { "type": ["string", "null"] }
+  }
+}

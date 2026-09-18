@@ -1,0 +1,79 @@
+{
+  "experiment_id": "exp_phase9_reranked",
+  "is_tuning_experiment": false,
+  "base_config_id": "exp_phase9_baseline",
+  "changed_parameters": {
+    "reranker.enabled": true,
+    "reranker.model_name": "BAAI/bge-reranker-v2-m3",
+    "reranker.reranker_top_k": 10
+  },
+  "dataset": {
+    "split_role": "DEVELOPMENT",
+    "dataset_name": "vietnamese_legal_retrieval",
+    "split_path": "data/benchmarks/retrieval_train.json",
+    "sample_limit": 100
+  },
+  "retriever": {
+    "retriever_name": "phase8_vector_store",
+    "retrieval_top_k": 20,
+    "retrieval_mode": "CHUNK",
+    "component_version": "bge-m3-dense-v1.0",
+    "parameters": {
+      "distance_metric": "cosine"
+    }
+  },
+  "reranker": {
+    "enabled": true,
+    "model_name": "BAAI/bge-reranker-v2-m3",
+    "reranker_top_k": 15,
+    "component_version": "bge-reranker-v2-m3-v1.0",
+    "parameters": {
+      "batch_size": 16
+    }
+  },
+  "context": {
+    "context_top_k": 5,
+    "score_threshold": 0.0,
+    "max_context_items": 5,
+    "deduplication_policy": "EXACT_CHUNK_ID",
+    "deduplication_options": {
+      "max_chunks_per_article": 2
+    },
+    "expansion_policy": "DISABLED",
+    "expansion_options": {},
+    "ordering_strategy": "SCORE_DESCENDING",
+    "max_context_tokens": 4096,
+    "budget_overflow_policy": "DROP_LOWEST_PRIORITY_ITEMS",
+    "component_version": "context-policy-v1.0"
+  },
+  "prompting": {
+    "prompt_version": "prompt_v1",
+    "template_name": "standard_legal_qa_v1",
+    "instruction_policy_version": "v1.0"
+  },
+  "generation": {
+    "llm_model": "Qwen/Qwen2.5-7B-Instruct",
+    "thinking_mode": false,
+    "max_output_tokens": 1024,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 42,
+    "component_version": "generator-v1.0",
+    "extra_parameters": {}
+  },
+  "evaluation": {
+    "evaluator_names": [
+      "citation_precision",
+      "citation_recall",
+      "abstention_correctness",
+      "faithfulness"
+    ],
+    "evaluation_cutoff": 10,
+    "component_version": "eval-v1.0"
+  },
+  "reproducibility": {
+    "seed": 42,
+    "code_version": "phase9-v0.9.0",
+    "notes": "Phase 9 controlled experiment with BGE-Reranker-v2-M3."
+  }
+}

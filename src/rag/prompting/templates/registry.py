@@ -1,0 +1,77 @@
+# src/rag/prompting/templates/registry.py
+"""Kho lưu trữ và quản lý phiên bản Prompt Template (PromptTemplateRegistry).
+
+Tuân thủ Mục 11.2: Versioned PromptTemplate và Mục 13: Structured Output.
+"""
+
+from typing import Dict, Optional
+
+from src.rag.errors.exceptions import InvalidPromptError
+from src.rag.prompting.domain.models import PromptTemplate
+
+# Template chuẩn prompt_v1 cho RAG Pháp luật Việt Nam
+DEFAULT_SYSTEM_TEMPLATE_V1 = """Bạn là trợ lý trí tuệ nhân tạo chuyên gia về Pháp luật Việt Nam.
+Nhiệm vụ của bạn là trả lời câu hỏi pháp lý của người dùng DỰA HOÀN TOÀN vào các căn cứ pháp lý được cung cấp bên dưới.
+
+NGUYÊN TẮC BẮT BUỘC:
+1. CĂN CỨ PHÁP LÝ (GROUNDING): Chỉ trả lời những nội dung được hỗ trợ trực tiếp và rõ ràng bởi các tài liệu/điều luật được cung cấp. Tuyệt đối không suy diễn ngoài văn bản.
+2. TRÍCH DẪN (CITATION): Mọi khẳng định pháp lý phải đi kèm trích dẫn số hiệu tham chiếu chính xác (ví dụ [1], [2]) trỏ đúng vào văn bản cung cấp.
+3. TỪ CHỐI TRẢ LỜI (ABSTENTION): Nếu tài liệu không đủ thông tin để trả lời đầy đủ, hãy nêu rõ tình trạng thông tin không đủ (confidence_level là PARTIAL hoặc INSUFFICIENT) và ghi rõ lý do trong abstention_reason.
+4. ĐỊNH DẠNG ĐẦU RA: Bạn BẮT BUỘC phải trả về định dạng JSON thuần túy, không kèm theo bất kỳ văn bản giải thích ngoài JSON hay khối suy nghĩ/lập luận nào:
+```json
+{{
+  "answer": "Nội dung câu trả lời rõ ràng, súc tích...",
+  "citations": [
+    {{
+      "citation_number": 1,
+      "law_id": "Số hiệu văn bản",
+      "article_identifier": "Điều khoản (nếu có)",
+      "supporting_evidence_or_quote": "Đoạn trích ngắn làm căn cứ"
+    }}
+  ],
+  "confidence_level": "FULL | PARTIAL | INSUFFICIENT",
+  "abstention_reason": null
+}}
+```"""
+
+DEFAULT_USER_TEMPLATE_V1 = """CĂN CỨ PHÁP LÝ ĐƯỢC CUNG CẤP:
+{evidence_text}
+
+CÂU HỎI CỦA NGƯỜI DÙNG:
+{query}
+
+Hãy trả lời bằng định dạng JSON chuẩn theo hướng dẫn:"""
+
+
+class PromptTemplateRegistry:
+    """Quản lý các phiên bản Prompt Template của hệ thống."""
+
+    def __init__(self) -> None:
+        self._templates: Dict[str, PromptTemplate] = {}
+        self._register_defaults()
+
+    def _register_defaults(self) -> None:
+        v1 = PromptTemplate(
+            template_version="prompt_v1",
+            template_name="standard_legal_qa_v1",
+            system_template=DEFAULT_SYSTEM_TEMPLATE_V1,
+            user_template=DEFAULT_USER_TEMPLATE_V1,
+            instruction_policy_version="v1.0",
+        )
+        self.register(v1)
+
+    def register(self, template: PromptTemplate) -> None:
+        """Đăng ký một template mới."""
+        self._templates[template.template_version] = template
+
+    def get(self, template_version: str) -> PromptTemplate:
+        """Lấy template theo mã phiên bản."""
+        if template_version not in self._templates:
+            raise InvalidPromptError(
+                f"Prompt template phiên bản '{template_version}' không tồn tại trong registry. "
+                f"Các phiên bản hiện có: {list(self._templates.keys())}"
+            )
+        return self._templates[template_version]
+
+    def has_version(self, template_version: str) -> bool:
+        return template_version in self._templates

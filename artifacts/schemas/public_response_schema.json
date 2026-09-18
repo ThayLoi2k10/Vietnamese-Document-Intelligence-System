@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LegalAnswerPublicSchema",
+  "type": "object",
+  "description": "Public response schema for Vietnamese Legal Document Intelligence RAG",
+  "required": [
+    "answer",
+    "citations",
+    "confidence_level",
+    "abstention_reason"
+  ],
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "The legal answer synthesized from retrieved context"
+    },
+    "citations": {
+      "type": "array",
+      "description": "List of supporting legal citations",
+      "items": {
+        "$ref": "citation_schema.json"
+      }
+    },
+    "confidence_level": {
+      "type": "string",
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "INSUFFICIENT"
+      ],
+      "description": "Categorical support status of the answer"
+    },
+    "abstention_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Explanation when abstaining or answering partially"
+    }
+  },
+  "additionalProperties": false
+}

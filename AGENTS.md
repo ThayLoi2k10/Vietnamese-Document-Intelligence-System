@@ -122,8 +122,9 @@ Documented as completed through **Phase 5**:
 | Dense Bi-Encoder baseline (Phase 6) | `src/retrieval/dense/`, `scripts/retrieval/`, `scripts/evaluation/`, `docs/evaluation/dense_baseline_report.md` |
 | Document Chunking (Phase 7) | `src/retrieval/chunking/`, `scripts/retrieval/`, `docs/evaluation/chunking_experiment_report.md` |
 | Vector Database Indexing (Phase 8) | `src/retrieval/indexing/`, `scripts/indexing/`, `results/benchmarks/vector_store_final_report.md` |
+| RAG Code Architecture (Phase 9) | `src/rag/`, `tests/unit/`, `tests/integration/`, `tests/leakage/`, `configs/`, `artifacts/schemas/`, `docs/phase9_rag_code_design_specification.md` |
 
-**Not implemented in `src/`:** RAG generation, hybrid retrieval (Phase 11), a CI workflow (Phase 23 is mentioned in preprocessing docs as a future gate, not present as GitHub Actions in the tree inspected for this file).
+**Not implemented in `src/`:** hybrid retrieval (Phase 11), a CI workflow (Phase 23 is mentioned in preprocessing docs as a future gate, not present as GitHub Actions in the tree inspected for this file).
 
 Keyword eval protocol: fit the index on the **full article corpus**; **tune only on train**; **report only on the frozen test**. Default evaluation `top_k = 100`. BM25 tuning evaluates `nDCG@10`, `R@10`, and `MAP@10`; the selected configuration is determined by **train nDCG@10**. The implemented `b` grid is exactly `{0.40, 0.55, 0.70, 0.75, 0.85}`. The BM25 tuning script evaluates candidate `k1` values from its configured grid; do not infer a grid from this document if the script is changed.
 
@@ -237,6 +238,7 @@ If browser/UI work appears in a future phase, verify in the browser; this repo c
 | Document Chunking experiment report | `docs/evaluation/chunking_experiment_report.md` |
 | Vector Database Indexing specification | `docs/phase8_vector_database_indexing_specification.md` |
 | Vector Database final report | `results/benchmarks/vector_store_final_report.md`, `docs/evaluation/vector_store_final_report.md` |
+| RAG Code Design Specification | `docs/phase9_rag_code_design_specification.md` |
 
 When a change alters behavior, metrics, schema, IDs, or phase status: update the corresponding doc in the same task. Do not rewrite history of Phase 5 numbers; add a new section or new report if a new experiment supersedes them.
 

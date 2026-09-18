@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CitationSchema",
+  "type": "object",
+  "description": "Schema for individual legal citation references",
+  "required": [
+    "citation_number",
+    "law_id"
+  ],
+  "properties": {
+    "citation_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-indexed reference number corresponding to prompt evidence [1], [2], etc."
+    },
+    "law_id": {
+      "type": "string",
+      "description": "Official legal document identifier (e.g. 100/2015/NĐ-CP)"
+    },
+    "article_identifier": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Specific legal article label (e.g. Điều 5)"
+    },
+    "chunk_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Stable chunk identity when chunk retrieval was used"
+    },
+    "global_article_id": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Immutable article identity in [0, 59635]"
+    },
+    "supporting_evidence_or_quote": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional direct quote or supporting phrase from source"
+    }
+  },
+  "additionalProperties": false
+}
