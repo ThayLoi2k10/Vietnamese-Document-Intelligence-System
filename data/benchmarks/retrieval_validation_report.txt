@@ -1,0 +1,25 @@
+============================================================
+KIỂM ĐỊNH TOÀN VẸN: RETRIEVAL BENCHMARK DATASET
+============================================================
+Corpus size tham chiếu: 59,636 articles [0, 59635]
+
+--- KIỂM ĐỊNH TẬP: TRAIN ---
+  * Tổng số queries          : 1,752
+  * Tổng số cặp nhãn (pairs) : 2,348
+  * Trung bình nhãn / query  : 1.34
+  * Trạng thái kiểm tra nội bộ: PASS
+
+--- KIỂM ĐỊNH TẬP: TEST ---
+  * Tổng số queries          : 438
+  * Tổng số cặp nhãn (pairs) : 588
+  * Trung bình nhãn / query  : 1.34
+  * Trạng thái kiểm tra nội bộ: PASS
+
+--- KIỂM TRA PHÂN HOẠCH TẬP HỢP (PARTITION INTEGRITY) ---
+[PASS] Train ∩ Test = ∅ (0% data leakage về query_id).
+[PASS] Train ∪ Test = Raw All (2,190 queries được bảo toàn 100%).
+[PASS] Phân bổ tỷ lệ kích thước hợp lệ: Train=1,752 (80.0%), Test=438 (20.0%).
+
+============================================================
+KẾT QUẢ CUỐI CÙNG: ALL ASSERTIONS PASSED (100%)
+============================================================

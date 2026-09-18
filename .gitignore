@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated / large data artifacts
+data/raw/
+data/processed/
+data/indices/
+results/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
