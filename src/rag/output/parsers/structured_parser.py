@@ -41,23 +41,30 @@ class OutputParser:
         """
         if not raw_text or not raw_text.strip():
             raise MalformedStructuredOutputError(
-                "Đầu ra thô của LLM rỗng, không thể phân tích cú pháp."
+                "Đầu ra thô của LLM rỗng, không thể phân tích cú pháp.",
+                details={"raw_text": raw_text},
             )
 
         json_str = self._strip_markdown_code_fence(raw_text)
+
+        if not json_str or not json_str.strip():
+            raise MalformedStructuredOutputError(
+                "Đầu ra JSON rỗng sau khi xử lý markdown code fence.",
+                details={"raw_text": raw_text, "json_str": json_str},
+            )
 
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError as e:
             raise MalformedStructuredOutputError(
                 f"Lỗi cú pháp JSON khi phân tích đầu ra của LLM: {e}",
-                details={"raw_text": raw_text},
+                details={"raw_text": raw_text, "json_str": json_str, "error": str(e)},
             )
 
         if not isinstance(data, dict):
             raise MalformedStructuredOutputError(
                 f"Đầu ra JSON phải là một từ điển (dict/object), nhận được: {type(data).__name__}",
-                details={"data": data},
+                details={"data": data, "raw_text": raw_text},
             )
 
         # Kiểm tra các trường bắt buộc
@@ -65,7 +72,7 @@ class OutputParser:
             if req_key not in data:
                 raise MalformedStructuredOutputError(
                     f"Đầu ra JSON thiếu trường bắt buộc '{req_key}'.",
-                    details={"data": data},
+                    details={"data": data, "raw_text": raw_text},
                 )
 
         # Kiểm tra và parse enum confidence_level
@@ -76,7 +83,7 @@ class OutputParser:
             raise MalformedStructuredOutputError(
                 f"Trường 'confidence_level' có giá trị không hợp lệ: '{conf_str}'. "
                 f"Giá trị hợp lệ: {[c.value for c in ConfidenceLevel]}",
-                details={"data": data},
+                details={"data": data, "raw_text": raw_text},
             )
 
         # Parse danh sách citations
@@ -84,7 +91,7 @@ class OutputParser:
         if not isinstance(raw_citations, list):
             raise MalformedStructuredOutputError(
                 f"Trường 'citations' phải là danh sách, nhận được: {type(raw_citations).__name__}",
-                details={"data": data},
+                details={"data": data, "raw_text": raw_text},
             )
 
         parsed_citations = []
@@ -92,9 +99,13 @@ class OutputParser:
             if not isinstance(c, dict):
                 raise MalformedStructuredOutputError(
                     f"Mỗi phần tử trong 'citations' phải là dict, nhận được: {type(c).__name__}",
-                    details={"citation": c},
+                    details={"citation": c, "raw_text": raw_text},
                 )
-            citation_obj = Citation.from_dict(c)
+            try:
+                citation_obj = Citation.from_dict(c)
+            except MalformedStructuredOutputError as c_err:
+                c_err.details["raw_text"] = raw_text
+                raise c_err
             parsed_citations.append(citation_obj)
 
         answer_text = str(data.get("answer", ""))
@@ -108,5 +119,9 @@ class OutputParser:
             confidence_level=confidence_level,
             abstention_reason=abstention_reason,
         )
-        legal_answer.validate()
+        try:
+            legal_answer.validate()
+        except MalformedStructuredOutputError as v_err:
+            v_err.details["raw_text"] = raw_text
+            raise v_err
         return legal_answer

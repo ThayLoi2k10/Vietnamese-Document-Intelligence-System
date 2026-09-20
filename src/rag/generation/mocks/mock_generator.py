@@ -90,13 +90,13 @@ class MockLLMGenerator(LLMGenerator):
 
         if mode == self.MODE_VALID_ANSWER:
             data = {
-                "answer": "Theo quy định của pháp luật Việt Nam, hành vi này được phép thực hiện nếu đáp ứng đủ điều kiện.",
+                "answer": "Người tham gia giao thông phải chấp hành hiệu lệnh theo quy định.",
                 "citations": [
                     {
                         "citation_number": 1,
                         "law_id": first_law_id,
                         "article_identifier": first_art,
-                        "supporting_evidence_or_quote": "được phép thực hiện nếu đáp ứng đủ điều kiện",
+                        "supporting_evidence_or_quote": "chấp hành hiệu lệnh",
                     }
                 ],
                 "confidence_level": "FULL",

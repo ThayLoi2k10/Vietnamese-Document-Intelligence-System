@@ -38,6 +38,8 @@ class Phase8RetrievalAdapter(Retriever):
         search_fn: Optional[Callable[[str, int], List[Any]]] = None,
         retriever_name: str = "phase8_vector_store",
         component_version: str = "v1.0.0",
+        vector_store: Optional[Any] = None,
+        encoder: Optional[Any] = None,
     ) -> None:
         """Khởi tạo adapter.
 
@@ -46,10 +48,14 @@ class Phase8RetrievalAdapter(Retriever):
                        VectorSearchResult hoặc dict payload từ Phase 8.
             retriever_name: Tên định danh của retriever.
             component_version: Phiên bản thành phần.
+            vector_store: Đối tượng BaseVectorStore (QdrantVectorStore hoặc FaissVectorStore).
+            encoder: Đối tượng DenseEncoder mã hóa query thành vector.
         """
         self.search_fn = search_fn
         self.retriever_name = retriever_name
         self.component_version = component_version
+        self.vector_store = vector_store
+        self.encoder = encoder
 
     def normalize_phase8_record(
         self, raw_item: Any, expected_rank: int
@@ -174,13 +180,20 @@ class Phase8RetrievalAdapter(Retriever):
 
     def retrieve(self, query: str, options: RetrievalOptions) -> RetrievalResult:
         """Thực thi truy xuất và chuẩn hóa kết quả sang RetrievalResult của Phase 9."""
-        if self.search_fn is None:
-            raise InvalidRetrievalResultError(
-                "Phase8RetrievalAdapter chưa được cấu hình search_fn."
-            )
-
         top_k = options.retrieval_top_k
-        raw_items = self.search_fn(query, top_k)
+        if self.search_fn is not None:
+            raw_items = self.search_fn(query, top_k)
+        elif self.vector_store is not None:
+            if self.encoder is None:
+                from src.retrieval.dense.encoder import DenseEncoder
+
+                self.encoder = DenseEncoder()
+            q_vec = self.encoder.encode_queries([query], batch_size=1)
+            raw_items = self.vector_store.search(q_vec, limit=top_k)
+        else:
+            raise InvalidRetrievalResultError(
+                "Phase8RetrievalAdapter chưa được cấu hình search_fn hoặc vector_store."
+            )
 
         items: List[RetrievalItem] = []
         for idx, raw_item in enumerate(raw_items, start=1):

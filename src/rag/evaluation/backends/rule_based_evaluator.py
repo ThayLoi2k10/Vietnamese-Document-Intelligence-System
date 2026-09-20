@@ -24,18 +24,35 @@ class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
     def evaluate_sample(self, item: EvaluationInput) -> float:
         citations = item.rag_response.legal_answer.citations
         if not citations:
-            return 1.0 if not item.ground_truth_law_ids else 0.0
+            return 1.0 if not item.ground_truth_law_ids and not item.ground_truth_article_ids else 0.0
 
         gt_laws = {str(lid).strip().lower() for lid in item.ground_truth_law_ids}
         gt_arts = {int(aid) for aid in item.ground_truth_article_ids}
 
+        # 1. Ánh xạ context_position -> ContextItem từ assembled_context
+        context_by_number = {
+            ctx.context_position: ctx
+            for ctx in item.rag_response.assembled_context.items
+        }
+
         correct_count = 0
         for c in citations:
             is_correct = False
-            if c.global_article_id is not None and c.global_article_id in gt_arts:
-                is_correct = True
-            elif c.law_id and c.law_id.strip().lower() in gt_laws:
-                is_correct = True
+            # 2. Resolve citation thông qua assembled_context
+            ctx = context_by_number.get(c.citation_number)
+            if ctx is not None:
+                if ctx.global_article_id is not None and ctx.global_article_id in gt_arts:
+                    is_correct = True
+                elif ctx.law_id and ctx.law_id.strip().lower() in gt_laws:
+                    is_correct = True
+
+            # 3. Fallback chỉ để tương thích với future/public schemas
+            if not is_correct:
+                if c.global_article_id is not None and c.global_article_id in gt_arts:
+                    is_correct = True
+                elif c.law_id and c.law_id.strip().lower() in gt_laws:
+                    is_correct = True
+
             if is_correct:
                 correct_count += 1
 
@@ -52,24 +69,39 @@ class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
         if not gt_laws and not gt_arts:
             return 1.0
 
-        cited_laws = {
-            c.law_id.strip().lower()
-            for c in item.rag_response.legal_answer.citations
-            if c.law_id
+        # Ánh xạ context_position -> ContextItem từ assembled_context
+        context_by_number = {
+            ctx.context_position: ctx
+            for ctx in item.rag_response.assembled_context.items
         }
-        cited_arts = {
-            c.global_article_id
-            for c in item.rag_response.legal_answer.citations
-            if c.global_article_id is not None
-        }
+
+        cited_arts = set()
+        cited_laws = set()
+
+        # Resolve từng citation qua assembled_context để lấy canonical global_article_id / law_id
+        for c in item.rag_response.legal_answer.citations:
+            ctx = context_by_number.get(c.citation_number)
+            if ctx is not None:
+                if ctx.global_article_id is not None:
+                    cited_arts.add(ctx.global_article_id)
+                if ctx.law_id:
+                    cited_laws.add(ctx.law_id.strip().lower())
+            else:
+                # Fallback chỉ để tương thích với future/public schemas
+                if c.global_article_id is not None:
+                    cited_arts.add(c.global_article_id)
+                if c.law_id:
+                    cited_laws.add(c.law_id.strip().lower())
 
         matched_count = 0
-        total_gt = max(len(gt_arts), len(gt_laws))
-
         if gt_arts:
             matched_count = len(gt_arts & cited_arts)
+            total_gt = len(gt_arts)
         elif gt_laws:
             matched_count = len(gt_laws & cited_laws)
+            total_gt = len(gt_laws)
+        else:
+            return 1.0
 
         return matched_count / total_gt if total_gt > 0 else 1.0
 

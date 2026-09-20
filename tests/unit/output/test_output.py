@@ -84,8 +84,44 @@ class TestOutputModule(unittest.TestCase):
             "answer": "Câu trả lời...",
             "confidence_level": "FULL"
         }"""
-        with self.assertRaises(MalformedStructuredOutputError):
+        with self.assertRaises(MalformedStructuredOutputError) as ctx:
             self.parser.parse(raw)
+        self.assertIn("raw_text", ctx.exception.details)
+
+    def test_reject_empty_output(self) -> None:
+        """Kiểm tra ném lỗi khi đầu ra rỗng hoặc chỉ có khoảng trắng / rỗng sau code fence."""
+        # 1. Chuỗi rỗng hoàn toàn
+        with self.assertRaises(MalformedStructuredOutputError) as ctx1:
+            self.parser.parse("")
+        self.assertEqual(ctx1.exception.details.get("raw_text"), "")
+
+        # 2. Chuỗi chỉ có khoảng trắng
+        with self.assertRaises(MalformedStructuredOutputError) as ctx2:
+            self.parser.parse("   \n\t  ")
+        self.assertEqual(ctx2.exception.details.get("raw_text"), "   \n\t  ")
+
+        # 3. Khối markdown code fence rỗng
+        raw_empty_fence = "```json\n```"
+        with self.assertRaises(MalformedStructuredOutputError) as ctx3:
+            self.parser.parse(raw_empty_fence)
+        self.assertEqual(ctx3.exception.details.get("raw_text"), raw_empty_fence)
+        self.assertIn("raw_text", ctx3.exception.details)
+
+    def test_reject_truncated_json(self) -> None:
+        """Kiểm tra ném lỗi khi đầu ra JSON bị cắt cụt (truncated JSON)."""
+        raw_truncated = '{"answer": "Người tham gia giao thông...", "citations": ['
+        with self.assertRaises(MalformedStructuredOutputError) as ctx:
+            self.parser.parse(raw_truncated)
+        self.assertEqual(ctx.exception.details.get("raw_text"), raw_truncated)
+        self.assertIn("json_str", ctx.exception.details)
+
+    def test_reject_non_dict_json(self) -> None:
+        """Kiểm tra ném lỗi khi đầu ra JSON không phải dict (ví dụ list hoặc scalar)."""
+        raw_list = '["answer", "citations", "confidence_level"]'
+        with self.assertRaises(MalformedStructuredOutputError) as ctx:
+            self.parser.parse(raw_list)
+        self.assertEqual(ctx.exception.details.get("raw_text"), raw_list)
+        self.assertIn("data", ctx.exception.details)
 
 
 if __name__ == "__main__":

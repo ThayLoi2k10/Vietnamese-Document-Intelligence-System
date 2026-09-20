@@ -97,6 +97,41 @@ class TestCitationModule(unittest.TestCase):
         self.assertFalse(res.is_valid)
         self.assertFalse(res.quote_matches.get(1, True))
 
+    def test_normalized_fuzzy_allows_whitespace_and_trailing_punctuation_difference(
+        self,
+    ) -> None:
+        """Kiểm tra NORMALIZED_FUZZY cho phép khác biệt khoảng trắng và dấu câu ở biên cuối."""
+        item = ContextItem(
+            context_item_id="[1]",
+            source_identity="chk_1",
+            law_id="100/2015/NĐ-CP",
+            article_identifier="Điều 5",
+            text="Người tham gia giao thông phải tuân thủ quy tắc sau đây: chấp hành hiệu lệnh của người điều khiển giao thông;",
+            source_rank=1,
+            context_position=1,
+        )
+        registry = EvidenceRegistry([item])
+        validator = CitationValidator(
+            quote_policy=QuoteMatchingPolicy.NORMALIZED_FUZZY
+        )
+
+        ans = LegalAnswer(
+            answer="Người tham gia giao thông phải chấp hành hiệu lệnh của người điều khiển giao thông.",
+            citations=[
+                Citation(
+                    citation_number=1,
+                    law_id="100/2015/NĐ-CP",
+                    article_identifier="Điều 5",
+                    supporting_evidence_or_quote="chấp hành  hiệu lệnh\n  của người điều khiển giao thông.",
+                )
+            ],
+            confidence_level=ConfidenceLevel.FULL,
+        )
+        res = validator.validate(ans, registry)
+
+        self.assertTrue(res.is_valid)
+        self.assertTrue(res.quote_matches.get(1, False))
+
 
 if __name__ == "__main__":
     unittest.main()

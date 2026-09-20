@@ -10,6 +10,7 @@ Tuân thủ Mục 14: Citation Validation:
 
 import re
 from typing import Any, Dict, List, Optional, Union
+import unicodedata
 
 from src.rag.citation.provenance.evidence_registry import EvidenceRegistry
 from src.rag.citation.validation.models import (
@@ -35,8 +36,11 @@ class CitationValidator:
         self.component_version = component_version
 
     def _normalize_string_for_fuzzy(self, text: str) -> str:
-        """Chuẩn hóa ký tự khoảng trắng và chữ thường cho so khớp mờ."""
-        return re.sub(r"\s+", " ", text.strip().lower())
+        """Chuẩn hóa văn bản cho so khớp quote có kiểm soát."""
+        text = unicodedata.normalize("NFKC", text)
+        text = re.sub(r"\s+", " ", text.strip().lower())
+        text = re.sub(r"[.;:!?]+$", "", text)
+        return text.strip()
 
     def _verify_quote(
         self, quote: Optional[str], source_text: str, policy: QuoteMatchingPolicy
