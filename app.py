@@ -113,6 +113,7 @@ def load_dense():
 @st.cache_resource(show_spinner="Đang nạp mô hình Reranker (BAAI/bge-reranker-base)...")
 def load_reranker():
     try:
+        import FlagEmbedding
         from src.retrieval.reranking.cross_encoder import ArticleReranker
 
         return ArticleReranker(device="cpu", max_length=384)
@@ -186,6 +187,8 @@ def search_hybrid(
     dense_retriever,
     corpus: Dict[int, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
+    if not dense_retriever and bm25_retriever:
+        return search_bm25(query, top_k, bm25_retriever, corpus)
     bm25_res = bm25_retriever.search(query, top_k=top_k * 2) if bm25_retriever else []
     dense_res = dense_retriever.search(query, top_k=top_k * 2) if dense_retriever else []
 
@@ -227,12 +230,15 @@ def search_hybrid_rerank(
 
     candidate_ids = [c["article_id"] for c in candidates]
     candidate_texts = [c["text"] for c in candidates]
-    rerank_results = reranker.rerank(
-        query=query,
-        candidate_ids=candidate_ids,
-        candidate_texts=candidate_texts,
-        top_k=top_k,
-    )
+    try:
+        rerank_results = reranker.rerank(
+            query=query,
+            candidate_ids=candidate_ids,
+            candidate_texts=candidate_texts,
+            top_k=top_k,
+        )
+    except Exception:
+        return candidates[:top_k]
     docs = []
     for r in rerank_results:
         meta = corpus.get(r.article_id, {})
