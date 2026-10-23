@@ -531,13 +531,13 @@ def main():
         retriever_choice = st.selectbox(
             "Retriever:",
             [
-                "Hybrid + Reranker (Khuyên dùng - Chuẩn xác nhất)",
+                "BM25 (Toàn bộ 59,636 điều luật - Ổn định & Tối ưu Cloud)",
+                "Hybrid + Reranker (Yêu cầu GPU Server)",
                 "Hybrid (BM25 + Dense RRF)",
                 "Dense (BGE-M3 Semantic)",
-                "BM25 (Từ khóa chính xác)",
             ],
             index=0,
-            help="Hybrid + Reranker kết hợp BM25 từ khóa, Dense vector ngữ nghĩa và mô hình Cross-Encoder để cho kết quả chính xác nhất.",
+            help="BM25 quét tức thì trên toàn bộ 59,636 điều luật Việt Nam với độ trễ < 10ms, tối ưu tuyệt đối cho môi trường Cloud.",
         )
 
         top_k = st.slider("Số điều luật trích xuất (Top-K):", min_value=1, max_value=10, value=3)
@@ -548,11 +548,11 @@ def main():
         backend_choice = st.selectbox(
             "Backend trả lời:",
             [
-                "Google Colab GPU Server (Qwen-7B)",
+                "Google Gemini API (Khuyên dùng)",
+                "Chỉ tra cứu điều luật (Không dùng LLM)",
                 "Groq Cloud API (Llama 3.3 70B)",
-                "Google Gemini API",
+                "Google Colab GPU Server (Qwen-7B)",
                 "Ollama Local (Offline)",
-                "Chỉ truy xuất luật (Không dùng LLM)",
             ],
             index=0,
         )
