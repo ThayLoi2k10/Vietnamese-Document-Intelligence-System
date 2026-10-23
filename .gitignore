@@ -1,22 +1,44 @@
-# Python
+# Python runtime & caches
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
+conda/
 
-# Jupyter
+# Jupyter Notebooks
 .ipynb_checkpoints/
 
-# Generated / large data artifacts & raw corpora
-data/
-artifacts/
-results/
+# Streamlit secrets & local config
+.streamlit/secrets.toml
 
-# Model checkpoints & heavy arrays
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# OS & IDE metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Binary executables & native libraries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Model checkpoints & heavy array caches (> 95MB)
 *.npy
 *.npz
 *.bin
@@ -24,19 +46,24 @@ results/
 *.pth
 *.onnx
 *.safetensors
+*.gguf
 *.tar.gz
 *.zip
+*.7z
 
-# Environment & secrets
-.env
-.env.*
-!.env.example
+# Large experimental data, benchmarks & outputs
+data/*
+artifacts/*
+results/*
 
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+# Explicitly whitelist the lightweight pre-built serving index (< 50MB)
+!data/processed/
+!data/processed/legal_retrieval/
+!data/processed/legal_retrieval/corpus_articles_preprocessed.parquet
+!data/indices/
+!data/indices/bm25_index.pkl
 
-# Executables
-*.exe
+# Log & temporary files
+*.log
+*.tmp
+tmp*/

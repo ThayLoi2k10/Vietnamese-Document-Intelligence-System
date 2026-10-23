@@ -1,5 +1,19 @@
 """Vietnamese Legal RAG Assistant - Streamlit Web Application (Phase 18 UI)."""
 
+try:
+    __import__("pysqlite3")
+    import sys
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
 import json
 import os
 from pathlib import Path
@@ -30,6 +44,20 @@ DEFAULT_CORPUS_PATH = (
 )
 DEFAULT_BM25_INDEX_PATH = PROJECT_ROOT / "data" / "indices" / "bm25_index.pkl"
 DEFAULT_DENSE_INDEX_DIR = PROJECT_ROOT / "data" / "indices" / "dense_bge_m3"
+
+
+def get_secret_or_env(key: str, default: str = "") -> str:
+    """Safe helper to fetch secret from os.environ or st.secrets without crashing."""
+    val = os.environ.get(key, "")
+    if val:
+        return val
+    try:
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+    return default
+
 
 HF_BASE_URL = "https://huggingface.co/spaces/ThayLoi2k10/vietnamese-legal-rag/resolve/main"
 
@@ -596,7 +624,7 @@ def main():
         groq_api_key = ""
         groq_model = "llama-3.1-8b-instant"
         if "Groq" in backend_choice:
-            default_key = os.environ.get("GROQ_API_KEY", "")
+            default_key = get_secret_or_env("GROQ_API_KEY", "")
             groq_api_key = st.text_input(
                 "Groq API Key:",
                 value=default_key,
@@ -614,7 +642,7 @@ def main():
         gemini_api_key = ""
         gemini_model = "gemini-1.5-flash"
         if "Gemini" in backend_choice:
-            default_gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            default_gemini_key = get_secret_or_env("GEMINI_API_KEY", "")
             gemini_api_key = st.text_input("Gemini API Key:", value=default_gemini_key, type="password")
             gemini_model = st.selectbox("Model Gemini:", ["gemini-1.5-flash", "gemini-1.5-pro"], index=0)
 
