@@ -11,14 +11,32 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Generated / large data artifacts
-data/raw/
-data/processed/
-data/indices/
+# Generated / large data artifacts & raw corpora
+data/
+artifacts/
 results/
+
+# Model checkpoints & heavy arrays
+*.npy
+*.npz
+*.bin
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.tar.gz
+*.zip
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# Executables
+*.exe
