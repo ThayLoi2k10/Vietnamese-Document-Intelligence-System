@@ -1,4 +1,5 @@
-# src/rag/prompting/__init__.py
+"""Prompt generation builders, domain models, and template registries."""
+
 from src.rag.prompting.builders import PromptBuilder
 from src.rag.prompting.domain import (
     GenerationInstructions,

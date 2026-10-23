@@ -1,4 +1,5 @@
-# src/rag/evaluation/interfaces/__init__.py
+"""Evaluation interfaces exports."""
+
 from src.rag.evaluation.interfaces.evaluator import (
     AbstentionCorrectnessEvaluator,
     AnswerRelevanceEvaluator,

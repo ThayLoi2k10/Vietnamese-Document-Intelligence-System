@@ -1,11 +1,4 @@
-# src/rag/config/schemas/config_models.py
-"""Mô hình cấu hình thực nghiệm hoàn chỉnh (ExperimentConfig) cho Phase 9.
-
-Tuân thủ Mục 18: Experiment Configuration & Mục 19: Dataset / Test Protection:
-    - 18.2 Required configuration dimensions
-    - 18.3 Configuration object hierarchy
-    - 19.5 Configuration-level leakage prevention (SplitRole enum)
-"""
+"""Configuration schema and domain models for RAG experiments."""
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -13,8 +6,6 @@ from typing import Any, Dict, List, Optional
 
 
 class SplitRole(str, Enum):
-    """Vai trò của tập dữ liệu trong quy trình nghiên cứu."""
-
     DEVELOPMENT = "DEVELOPMENT"
     VALIDATION = "VALIDATION"
     FROZEN_TEST = "FROZEN_TEST"
@@ -22,8 +13,6 @@ class SplitRole(str, Enum):
 
 @dataclass
 class DatasetConfig:
-    """Cấu hình tập dữ liệu truy vấn/đánh giá."""
-
     split_role: SplitRole
     dataset_name: str = "retrieval_benchmark"
     split_path: str = "data/benchmarks/retrieval_train.json"
@@ -37,8 +26,6 @@ class DatasetConfig:
 
 @dataclass
 class RetrieverConfig:
-    """Cấu hình cho thành phần Retriever."""
-
     retriever_name: str = "phase8_vector_store"
     retrieval_top_k: int = 10
     retrieval_mode: str = "CHUNK"
@@ -51,8 +38,6 @@ class RetrieverConfig:
 
 @dataclass
 class RerankerConfig:
-    """Cấu hình cho thành phần Reranker."""
-
     enabled: bool = False
     model_name: Optional[str] = None
     reranker_top_k: int = 10
@@ -65,8 +50,6 @@ class RerankerConfig:
 
 @dataclass
 class ContextConfig:
-    """Cấu hình cho chính sách tuyển chọn và lắp ráp ngữ cảnh."""
-
     context_top_k: int = 5
     score_threshold: Optional[float] = None
     max_context_items: Optional[int] = None
@@ -85,8 +68,6 @@ class ContextConfig:
 
 @dataclass
 class PromptConfig:
-    """Cấu hình cho Prompt Template."""
-
     prompt_version: str = "prompt_v1"
     template_name: str = "standard_legal_qa_v1"
     instruction_policy_version: str = "instructions-v1.0"
@@ -97,8 +78,6 @@ class PromptConfig:
 
 @dataclass
 class GenerationConfig:
-    """Cấu hình cho mô hình sinh LLM."""
-
     llm_model: str = "Qwen/Qwen2.5-7B-Instruct"
     thinking_mode: bool = False
     max_output_tokens: int = 1024
@@ -114,8 +93,6 @@ class GenerationConfig:
 
 @dataclass
 class EvaluationConfig:
-    """Cấu hình đánh giá."""
-
     evaluator_names: List[str] = field(
         default_factory=lambda: [
             "citation_precision",
@@ -133,8 +110,6 @@ class EvaluationConfig:
 
 @dataclass
 class ReproducibilityConfig:
-    """Metadata tái lập thực nghiệm."""
-
     seed: int = 42
     code_version: str = "git_commit_placeholder"
     notes: Optional[str] = None
@@ -145,8 +120,6 @@ class ReproducibilityConfig:
 
 @dataclass
 class ExperimentConfig:
-    """Cấu hình thực nghiệm cấp cao nhất của Phase 9."""
-
     experiment_id: str
     dataset: DatasetConfig
     retriever: RetrieverConfig

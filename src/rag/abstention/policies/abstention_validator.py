@@ -1,8 +1,4 @@
-# src/rag/abstention/policies/abstention_validator.py
-"""Bộ kiểm định tính nhất quán của quyết định từ chối (AbstentionValidator).
-
-Tuân thủ Mục 15.6: Abstention evaluation & Validation.
-"""
+"""Validator reconciling abstention decisions against context and citations."""
 
 from typing import Optional
 
@@ -17,7 +13,7 @@ from src.rag.output.schemas.response_schema import ConfidenceLevel, LegalAnswer
 
 
 class AbstentionValidator:
-    """Xác thực tính hợp lệ và nhất quán của quyết định từ chối so với câu trả lời."""
+    """Validates and reconciles abstention decisions with pipeline evidence."""
 
     def __init__(self, policy: Optional[AbstentionPolicy] = None) -> None:
         self.policy = policy or AbstentionPolicy()
@@ -29,8 +25,6 @@ class AbstentionValidator:
         context: AssembledContext,
         citation_validation: Optional[CitationValidationResult] = None,
     ) -> AbstentionDecision:
-        """Kiểm tra và điều hòa (reconcile) quyết định từ chối trả lời."""
-        # Nếu context hoàn toàn không có bằng chứng
         if len(context.items) == 0:
             return AbstentionDecision(
                 status=ConfidenceLevel.INSUFFICIENT,
@@ -40,7 +34,6 @@ class AbstentionValidator:
                 policy_version=self.policy.policy_version,
             )
 
-        # Nếu có trích dẫn bị lỗi và chính sách yêu cầu hạ mức tin cậy
         if self.policy.downgrade_on_invalid_citations:
             if citation_validation and not citation_validation.is_valid:
                 return AbstentionDecision(

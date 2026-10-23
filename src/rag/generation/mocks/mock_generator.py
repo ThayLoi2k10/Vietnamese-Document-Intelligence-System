@@ -1,14 +1,4 @@
-# src/rag/generation/mocks/mock_generator.py
-"""Mô phỏng LLM Generator (MockLLMGenerator) cho kiểm thử và đánh giá không tải mô hình thật.
-
-Tuân thủ Mục 12.7: Mock generator và Mục 22.6: Mock/fake strategy:
-    - Returns valid structured answer
-    - Returns malformed output
-    - Returns invalid citation
-    - Returns abstention
-    - Raises generation failure
-    - Returns partial answer
-"""
+"""Mock LLM generator simulating varied responses and failure modes."""
 
 import json
 from typing import Any, Dict, Optional
@@ -23,7 +13,7 @@ from src.rag.generation.interfaces.generator import LLMGenerator
 
 
 class MockLLMGenerator(LLMGenerator):
-    """Bộ tạo kết quả giả định với các chế độ kịch bản định sẵn."""
+    """Configurable mock generator returning predefined response scenarios."""
 
     MODE_VALID_ANSWER = "valid_answer"
     MODE_MALFORMED_JSON = "malformed_json"
@@ -50,7 +40,7 @@ class MockLLMGenerator(LLMGenerator):
 
         if self.mode == self.MODE_FAILURE:
             raise LLMGenerationError(
-                "MockLLMGenerator mô phỏng lỗi kết nối/hỏng dịch vụ LLM.",
+                "MockLLMGenerator simulating connection or service failure.",
                 component_identifier=request.model_identifier,
             )
 
@@ -81,7 +71,6 @@ class MockLLMGenerator(LLMGenerator):
     def _build_preset_response(
         self, mode: str, request: GenerationRequest
     ) -> str:
-        # Lấy một reference hợp lệ nếu có trong context
         evidence_items = list(request.prompt.evidence_registry.values())
         first_law_id = evidence_items[0].law_id if evidence_items else "LAW_DEFAULT"
         first_art = (
@@ -104,15 +93,15 @@ class MockLLMGenerator(LLMGenerator):
             }
             return json.dumps(data, ensure_ascii=False)
 
-        elif mode == self.MODE_MALFORMED_JSON:
+        if mode == self.MODE_MALFORMED_JSON:
             return "Đây là câu trả lời không đúng định dạng JSON: { 'answer': lỗi cú pháp json ... "
 
-        elif mode == self.MODE_INVALID_CITATION:
+        if mode == self.MODE_INVALID_CITATION:
             data = {
                 "answer": "Căn cứ theo quy định tại luật không hề tồn tại trong tài liệu.",
                 "citations": [
                     {
-                        "citation_number": 999,  # Không có trong context [1]..[K]
+                        "citation_number": 999,
                         "law_id": "LUAT_MA_KHONG_CO_TRONG_CONTEXT",
                         "article_identifier": "Điều 999",
                         "supporting_evidence_or_quote": "nội dung ma",
@@ -123,7 +112,7 @@ class MockLLMGenerator(LLMGenerator):
             }
             return json.dumps(data, ensure_ascii=False)
 
-        elif mode == self.MODE_ABSTENTION:
+        if mode == self.MODE_ABSTENTION:
             data = {
                 "answer": "Tài liệu căn cứ pháp lý được cung cấp không đủ thông tin để trả lời câu hỏi này.",
                 "citations": [],
@@ -132,7 +121,7 @@ class MockLLMGenerator(LLMGenerator):
             }
             return json.dumps(data, ensure_ascii=False)
 
-        elif mode == self.MODE_PARTIAL_ANSWER:
+        if mode == self.MODE_PARTIAL_ANSWER:
             data = {
                 "answer": "Tài liệu chỉ quy định về nguyên tắc chung, chưa có hướng dẫn chi tiết về trường hợp này.",
                 "citations": [

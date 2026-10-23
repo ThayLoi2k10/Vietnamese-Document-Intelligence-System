@@ -1,4 +1,5 @@
-# src/rag/evaluation/backends/__init__.py
+"""Rule-based evaluation backends exports."""
+
 from src.rag.evaluation.backends.rule_based_evaluator import (
     HeuristicFaithfulnessEvaluator,
     RuleBasedAbstentionCorrectnessEvaluator,

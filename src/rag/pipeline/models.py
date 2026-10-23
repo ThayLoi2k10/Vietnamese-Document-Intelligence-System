@@ -1,8 +1,4 @@
-# src/rag/pipeline/models.py
-"""Mô hình miền đại diện cho kết quả hoàn chỉnh của Pipeline RAG.
-
-Tuân thủ Mục 7.1: Core value objects & Mục 16: RAG Pipeline.
-"""
+"""Domain models for unified RAG pipeline responses and audit traces."""
 
 from dataclasses import dataclass, field
 from typing import Any, Dict
@@ -16,8 +12,6 @@ from src.rag.output.schemas.response_schema import LegalAnswer
 
 @dataclass
 class RAGResponse:
-    """Phản hồi hoàn chỉnh của pipeline RAG chứa cả kết quả công khai lẫn vết kiểm toán nội bộ."""
-
     question: str
     legal_answer: LegalAnswer
     citation_validation: CitationValidationResult
@@ -27,14 +21,9 @@ class RAGResponse:
     execution_metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_public_dict(self) -> Dict[str, Any]:
-        """Xuất phản hồi công khai tuân thủ nghiêm ngặt Mục 13.1 (Public Schema).
-
-        Không chứa bất kỳ reasoning trace hoặc metadata nội bộ.
-        """
         return self.legal_answer.to_dict()
 
     def to_full_audit_dict(self) -> Dict[str, Any]:
-        """Xuất toàn bộ thông tin phục vụ phân tích lỗi, đánh giá và tái lập kết quả."""
         return {
             "question": self.question,
             "legal_answer": self.legal_answer.to_dict(),

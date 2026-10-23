@@ -1,11 +1,4 @@
-# src/retrieval/chunking/sentence.py
-"""Chiến lược phân đoạn theo ranh giới câu (Sentence-based Chunking) cho Phase 7.
-
-Tuân thủ Mục 7.3 của Đặc tả Phase 7:
-    - Phân đoạn câu tất định, bảo toàn ranh giới câu tiếng Việt.
-    - Không làm mất ký tự nguồn, xử lý các trường hợp ngoại lệ viết tắt/số hiệu pháp lý.
-    - Cơ chế gom nhóm câu liên tiếp đạt ngân sách target_size và fallback khi câu quá dài.
-"""
+"""Chiến lược phân đoạn văn bản dựa trên ranh giới câu tiếng Việt."""
 
 import re
 from typing import Any, List, Optional, Tuple
@@ -16,11 +9,9 @@ from src.retrieval.chunking.models import (
     generate_deterministic_chunk_id,
 )
 
-# Pattern nhận diện kết thúc câu trong văn bản pháp luật tiếng Việt
 SENTENCE_SPLIT_PATTERN = re.compile(
     r"(?<=[.!?])\s+(?=[A-ZĐÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ0-9])"
 )
-# Các trường hợp viết tắt không phải kết thúc câu
 ABBREVIATION_PATTERN = re.compile(
     r"\b(?:Điều|Khoản|Điểm|số|Số|ngày|NĐ-CP|TT-BTC|NQ-CP|QĐ-TTg|TP|TW|K/c)\.\s*$",
     re.IGNORECASE,
@@ -28,8 +19,6 @@ ABBREVIATION_PATTERN = re.compile(
 
 
 class SentenceChunker(BaseChunker):
-    """Bộ phân đoạn văn bản dựa trên ghép các câu hoàn chỉnh."""
-
     def __init__(
         self,
         target_size: int = 512,
@@ -56,18 +45,16 @@ class SentenceChunker(BaseChunker):
         self.fallback_count: int = 0
 
     def _split_into_sentences(self, text: str) -> List[Tuple[int, int]]:
-        """Phân tách văn bản thành các khoảng ký tự (start, end) của câu."""
         if not text:
             return []
 
-        # Tách trước theo dòng để bảo toàn cấu trúc dòng
         lines_spans: List[Tuple[int, int]] = []
         curr = 0
         for line in text.split("\n"):
             line_len = len(line)
             if line_len > 0:
                 lines_spans.append((curr, curr + line_len))
-            curr += line_len + 1  # 1 cho ký tự '\n'
+            curr += line_len + 1
 
         sentence_spans: List[Tuple[int, int]] = []
         for l_start, l_end in lines_spans:
@@ -75,7 +62,6 @@ class SentenceChunker(BaseChunker):
             if not line_text.strip():
                 continue
 
-            # Phân tách trong từng dòng
             matches = list(SENTENCE_SPLIT_PATTERN.finditer(line_text))
             if not matches:
                 sentence_spans.append((l_start, l_end))
@@ -85,7 +71,6 @@ class SentenceChunker(BaseChunker):
             for m in matches:
                 split_point = m.start() + 1
                 segment = line_text[last_idx:split_point]
-                # Kiểm tra ngoại lệ viết tắt
                 if ABBREVIATION_PATTERN.search(segment):
                     continue
                 sentence_spans.append((l_start + last_idx, l_start + split_point))
@@ -103,7 +88,6 @@ class SentenceChunker(BaseChunker):
         law_id: str,
         article_identifier: str,
     ) -> List[LegalChunk]:
-        """Phân đoạn điều luật theo từng câu hoàn chỉnh."""
         if not text or not text.strip():
             return []
 
@@ -140,7 +124,6 @@ class SentenceChunker(BaseChunker):
         if not raw_sent_spans:
             raw_sent_spans = [(0, len(text))]
 
-        # Chuẩn hóa các câu: nếu câu nào quá dài thì token fallback
         atomic_spans: List[Tuple[int, int]] = []
         for s_start, s_end in raw_sent_spans:
             sent_str = text[s_start:s_end]
@@ -149,7 +132,6 @@ class SentenceChunker(BaseChunker):
                 atomic_spans.append((s_start, s_end))
             else:
                 self.fallback_count += 1
-                # Fallback cắt lát theo token cho câu ngoại cỡ
                 encoding = self.tokenizer(
                     sent_str,
                     add_special_tokens=False,
@@ -164,7 +146,6 @@ class SentenceChunker(BaseChunker):
                         (s_start + offsets[i][0], s_start + offsets[end_i - 1][1])
                     )
 
-        # Gom nhóm các câu liên tiếp theo target_size
         merged_chunks_info: List[Tuple[int, int, str, int]] = []
         curr_start = atomic_spans[0][0]
         curr_end = atomic_spans[0][1]

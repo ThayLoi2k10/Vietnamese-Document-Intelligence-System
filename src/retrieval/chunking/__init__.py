@@ -1,5 +1,4 @@
-# src/retrieval/chunking/__init__.py
-"""Package quản lý và triển khai các chiến lược phân đoạn văn bản pháp luật (Phase 7)."""
+"""Package quản lý các chiến lược phân đoạn văn bản pháp luật."""
 
 from src.retrieval.chunking.base import BaseChunker
 from src.retrieval.chunking.fixed_size import FixedSizeChunker

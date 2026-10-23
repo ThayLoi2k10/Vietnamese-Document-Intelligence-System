@@ -1,11 +1,4 @@
-# src/retrieval/indexing/rebuild.py
-"""Chiến lược tái xây dựng và khôi phục chỉ mục vector (Rebuild & Recovery Strategy).
-
-Tuân thủ Mục 22 và Mục 23 của Đặc tả Phase 8:
-    - Xây dựng lại toàn bộ chỉ mục vector từ nguồn Parquet và embedding cache.
-    - Duy trì collection cũ cho rollback window trước khi switch chính thức.
-    - Xác thực tính toàn vẹn 100% trước khi bàn giao.
-"""
+"""Chiến lược tái xây dựng và khôi phục chỉ mục vector từ dữ liệu chunks."""
 
 from pathlib import Path
 import time
@@ -26,7 +19,6 @@ def rebuild_vector_index(
     encoder: Optional[DenseEncoder] = None,
     batch_size: int = 500,
 ) -> Dict[str, Any]:
-    """Thực thi quy trình tái xây dựng chỉ mục vector theo 9 bước của Mục 22."""
     t_start = time.time()
     chunks_path = Path(authoritative_chunks_path)
     if not chunks_path.exists():
@@ -36,7 +28,6 @@ def rebuild_vector_index(
     chunks_df = chunks_table.to_pandas()
     num_chunks = len(chunks_df)
 
-    # Nạp cache embeddings
     cache_dict: Dict[str, np.ndarray] = {}
     if embeddings_cache_file and Path(embeddings_cache_file).exists():
         loaded = np.load(embeddings_cache_file)
@@ -58,7 +49,6 @@ def rebuild_vector_index(
         total_c = int(row["total_chunks"])
         c_start = int(row["char_start"])
 
-        # Kiểm tra xem có lấy trực tiếp được từ Phase 6 hay cache không
         if total_c == 1 and c_start == 0 and article_embeddings is not None and gid < len(article_embeddings):
             vec = article_embeddings[gid]
         elif chash in cache_dict:
@@ -75,7 +65,6 @@ def rebuild_vector_index(
         )
         points.append(p)
 
-    # Nếu có chunk chưa có embedding thì tính toán bổ sung
     if missing_texts:
         if encoder is None:
             encoder = DenseEncoder()
@@ -87,7 +76,6 @@ def rebuild_vector_index(
         if embeddings_cache_file:
             np.savez_compressed(embeddings_cache_file, **cache_dict)
 
-    # Upsert toàn bộ vào vector store theo batch
     total_upserted = 0
     for b_i in range(0, num_chunks, batch_size):
         b_points = points[b_i : b_i + batch_size]

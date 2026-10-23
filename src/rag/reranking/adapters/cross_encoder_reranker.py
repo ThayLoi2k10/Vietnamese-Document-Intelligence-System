@@ -1,14 +1,7 @@
-# src/rag/reranking/adapters/cross_encoder_reranker.py
-"""Adapter cho các mô hình Cross-Encoder Reranker (BGE-Reranker-v2-M3, ViRanker).
+"""Cross-encoder adapter for re-ranking retrieved candidates."""
 
-Tuân thủ Mục 9:
-    - 9.3 Candidate models [HYP]: Không hard-code winner logic
-    - 9.4 Reranker contract: Bảo toàn provenance, tính điểm và rank mới
-"""
+from typing import Callable, List, Optional
 
-from typing import Any, Callable, Dict, List, Optional
-
-from src.rag.errors.exceptions import IncompatibleComponentVersionError
 from src.rag.reranking.domain.models import (
     RankedCandidate,
     RankedResults,
@@ -19,7 +12,7 @@ from src.rag.retrieval.domain.models import RetrievalItem
 
 
 class CrossEncoderRerankerAdapter(Reranker):
-    """Adapter tích hợp các mô hình Cross-Encoder vào Phase 9 Reranking interface."""
+    """Adapter integrating cross-encoder models into the Reranker interface."""
 
     def __init__(
         self,
@@ -60,13 +53,19 @@ class CrossEncoderRerankerAdapter(Reranker):
         if self.predict_fn is not None:
             scores = self.predict_fn(pairs)
         else:
-            # Fallback nếu không có predict_fn (ví dụ trong môi trường offline/unfitted)
-            scores = [
-                float(item.score if item.score is not None else 0.0)
-                for item in selected_candidates
-            ]
+            try:
+                from FlagEmbedding import FlagReranker
+                if not hasattr(self, "_model") or self._model is None:
+                    use_fp16 = self.device != "cpu"
+                    self._model = FlagReranker(self.model_name_or_path, use_fp16=use_fp16, device=self.device)
+                raw = self._model.compute_score(pairs, batch_size=self.batch_size)
+                scores = [float(raw)] if isinstance(raw, (int, float)) else [float(s) for s in raw]
+            except Exception:
+                scores = [
+                    float(item.score if item.score is not None else 0.0)
+                    for item in selected_candidates
+                ]
 
-        # Ghép cặp và sắp xếp giảm dần theo điểm rerank
         scored_pairs = list(zip(selected_candidates, scores))
         scored_pairs.sort(key=lambda x: x[1], reverse=True)
 

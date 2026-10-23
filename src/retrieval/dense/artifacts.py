@@ -1,12 +1,4 @@
-# src/retrieval/dense/artifacts.py
-"""Quản lý tuần tự hóa, kiểm định fingerprint và tính toàn vẹn artifact Phase 6.
-
-Tuân thủ nghiêm ngặt đặc tả:
-    - Lưu trữ atomic (ghi file tạm rồi đổi tên)
-    - Fingerprint SHA-256 cho cặp có thứ tự (global_article_id, text)
-    - Fingerprint SHA-256 cho benchmark train / test
-    - Fail-fast khi phát hiện sai lệch cấu hình hoặc chỉ mục
-"""
+"""Quản lý lưu trữ, fingerprint và tính toàn vẹn artifact cho mô hình dense retrieval."""
 
 import hashlib
 import json
@@ -21,7 +13,6 @@ EXPECTED_DIMENSION = 1024
 
 
 def compute_file_sha256(file_path: Union[str, Path]) -> str:
-    """Tính toán mã băm SHA-256 của một file trên đĩa."""
     hasher = hashlib.sha256()
     with open(file_path, "rb") as f:
         while chunk := f.read(1024 * 1024):
@@ -30,16 +21,13 @@ def compute_file_sha256(file_path: Union[str, Path]) -> str:
 
 
 def compute_corpus_fingerprint(records: List[Tuple[int, str]]) -> str:
-    """Tính mã băm SHA-256 từ danh sách có thứ tự các cặp (global_article_id, text)."""
     hasher = hashlib.sha256()
     for article_id, text in records:
-        entry = f"{article_id}:{text}\n".encode("utf-8")
-        hasher.update(entry)
+        hasher.update(f"{article_id}:{text}\n".encode("utf-8"))
     return hasher.hexdigest()
 
 
 def compute_id_sequence_fingerprint(ids: List[int]) -> str:
-    """Tính mã băm SHA-256 cho chuỗi thứ tự ID."""
     hasher = hashlib.sha256()
     for cid in ids:
         hasher.update(f"{cid}\n".encode("utf-8"))
@@ -47,8 +35,6 @@ def compute_id_sequence_fingerprint(ids: List[int]) -> str:
 
 
 class DenseArtifactManager:
-    """Quản lý các artifact của mô hình Dense Retrieval."""
-
     def __init__(self, artifact_dir: Union[str, Path]) -> None:
         self.artifact_dir = Path(artifact_dir)
         self.config_path = self.artifact_dir / "config.json"
@@ -59,7 +45,6 @@ class DenseArtifactManager:
         self.build_report_path = self.artifact_dir / "build_report.json"
 
     def _atomic_write_json(self, file_path: Path, data: Any) -> None:
-        """Ghi an toàn file JSON qua cơ chế temporary file và atomic replace."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "w", dir=file_path.parent, delete=False, encoding="utf-8"
@@ -69,7 +54,6 @@ class DenseArtifactManager:
         os.replace(tmp_name, file_path)
 
     def _atomic_write_numpy(self, file_path: Path, array: np.ndarray) -> None:
-        """Ghi an toàn file NumPy mmap/binary qua cơ chế atomic replace."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "wb", dir=file_path.parent, delete=False
@@ -84,30 +68,19 @@ class DenseArtifactManager:
         corpus_ids: List[int],
         corpus_fingerprint: Dict[str, Any],
         embeddings: np.ndarray,
-        faiss_index_saver: Any,  # Hàm hoặc callable nhận file_path
+        faiss_index_saver: Any,
         build_report: Dict[str, Any],
     ) -> None:
-        """Lưu trữ toàn bộ artifacts của giai đoạn xây dựng chỉ mục Dense."""
         self.artifact_dir.mkdir(parents=True, exist_ok=True)
-
-        # 1. Ghi config.json
         self._atomic_write_json(self.config_path, config)
-
-        # 2. Ghi corpus_ids.json
         self._atomic_write_json(self.corpus_ids_path, corpus_ids)
-
-        # 3. Ghi corpus_fingerprint.json
         self._atomic_write_json(self.corpus_fingerprint_path, corpus_fingerprint)
-
-        # 4. Ghi embeddings.f32.npy
         self._atomic_write_numpy(self.embeddings_path, embeddings)
 
-        # 5. Ghi index.faiss
         temp_index = self.artifact_dir / "temp_index.faiss"
         faiss_index_saver(temp_index)
         os.replace(temp_index, self.index_path)
 
-        # 6. Ghi build_report.json
         self._atomic_write_json(self.build_report_path, build_report)
 
     def verify_artifacts(
@@ -115,7 +88,6 @@ class DenseArtifactManager:
         expected_corpus_fingerprint: Optional[str] = None,
         expected_count: int = EXPECTED_CORPUS_SIZE,
     ) -> Dict[str, Any]:
-        """Kiểm định tính toàn vẹn của artifacts đã lưu. Fail-fast nếu có lỗi."""
         required_files = [
             self.config_path,
             self.corpus_ids_path,
@@ -128,11 +100,9 @@ class DenseArtifactManager:
             if not path.exists():
                 raise FileNotFoundError(f"[FAIL FAST] Thiếu artifact bắt buộc: {path}")
 
-        # Kiểm tra config
         with open(self.config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
-        # Kiểm tra corpus_ids
         with open(self.corpus_ids_path, "r", encoding="utf-8") as f:
             corpus_ids = json.load(f)
 
@@ -141,7 +111,6 @@ class DenseArtifactManager:
                 f"[FAIL FAST] Số lượng corpus_ids ({len(corpus_ids)}) != {expected_count}"
             )
 
-        # Kiểm tra fingerprint nếu được cung cấp
         with open(self.corpus_fingerprint_path, "r", encoding="utf-8") as f:
             fp_data = json.load(f)
 
@@ -154,8 +123,6 @@ class DenseArtifactManager:
                     f"Thực tế: {actual_fp}"
                 )
 
-        # Kiểm tra ma trận embeddings (đọc header kiểm tra shape và dtype)
-        # Sử dụng mmap_mode='r' để không nạp toàn bộ vào RAM khi kiểm tra
         mmap_arr = np.load(self.embeddings_path, mmap_mode="r")
         if mmap_arr.shape != (expected_count, EXPECTED_DIMENSION):
             raise ValueError(

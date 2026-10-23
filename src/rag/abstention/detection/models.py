@@ -1,13 +1,6 @@
-# src/rag/abstention/detection/models.py
-"""Mô hình miền cho cơ chế từ chối trả lời (Abstention) Phase 9.
+"""Domain models for abstention decisions and failure reason codes."""
 
-Tuân thủ Mục 15: Abstention:
-    - 15.1 First-class behavior (FULL, PARTIAL, INSUFFICIENT)
-    - 15.3 AbstentionDecision
-    - 15.4 Detection signals
-"""
-
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -15,8 +8,6 @@ from src.rag.output.schemas.response_schema import ConfidenceLevel
 
 
 class AbstentionReasonCode(str, Enum):
-    """Mã định danh lý do từ chối hoặc trả lời một phần."""
-
     SUFFICIENT_EVIDENCE = "SUFFICIENT_EVIDENCE"
     EMPTY_RETRIEVAL = "EMPTY_RETRIEVAL"
     INSUFFICIENT_CONTEXT = "INSUFFICIENT_CONTEXT"
@@ -29,8 +20,6 @@ class AbstentionReasonCode(str, Enum):
 
 @dataclass
 class AbstentionDecision:
-    """Quyết định đánh giá mức độ tin cậy và lý do từ chối/trả lời một phần."""
-
     status: ConfidenceLevel
     reason_code: AbstentionReasonCode
     explanation: Optional[str] = None

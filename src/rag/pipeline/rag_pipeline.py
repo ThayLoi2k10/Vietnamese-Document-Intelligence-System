@@ -1,21 +1,10 @@
-# src/rag/pipeline/rag_pipeline.py
-"""Bộ điều phối luồng thực thi chính (RAGPipeline Orchestrator) cho Phase 9.
-
-Tuân thủ Mục 16: RAG Pipeline:
-    - 16.1 Orchestrator & Dependency Injection
-    - 16.2 Execution flow: Query -> Retrieval -> (Rerank) -> Context -> Prompt -> Generation -> Parse -> Citation -> Abstention -> Response
-    - 16.3 Phân tách trách nhiệm rõ ràng, không fallback ngầm
-    - 16.4 Kiểm thử cô lập qua Mock
-"""
+"""Main RAG pipeline orchestrating retrieval, context assembly, generation, and validation."""
 
 import time
 from typing import Any, Dict, Optional
 
 from src.rag.abstention.detection.abstention_detector import AbstentionDetector
-from src.rag.abstention.detection.models import (
-    AbstentionDecision,
-    AbstentionReasonCode,
-)
+from src.rag.abstention.detection.models import AbstentionDecision
 from src.rag.abstention.policies.abstention_validator import AbstentionValidator
 from src.rag.citation.validation.citation_validator import CitationValidator
 from src.rag.context.context_assembler import ContextAssembler
@@ -28,7 +17,7 @@ from src.rag.generation.domain.models import (
 )
 from src.rag.generation.interfaces.generator import LLMGenerator
 from src.rag.output.parsers.structured_parser import OutputParser
-from src.rag.output.schemas.response_schema import ConfidenceLevel, LegalAnswer
+from src.rag.output.schemas.response_schema import LegalAnswer
 from src.rag.pipeline.models import RAGResponse
 from src.rag.prompting.builders.prompt_builder import PromptBuilder
 from src.rag.reranking.domain.models import RerankOptions
@@ -38,7 +27,7 @@ from src.rag.retrieval.interfaces.retriever import Retriever
 
 
 class RAGPipeline:
-    """Bộ điều phối RAG thực thi toàn bộ pipeline từ truy vấn đến câu trả lời pháp lý có cấu trúc."""
+    """Orchestrates end-to-end RAG workflow from user query to structured legal answer."""
 
     def __init__(
         self,
@@ -81,37 +70,18 @@ class RAGPipeline:
         max_output_tokens: int = 1024,
         run_metadata: Optional[Dict[str, Any]] = None,
     ) -> RAGResponse:
-        """Thực thi một chu trình RAG hoàn chỉnh cho câu hỏi truy vấn.
-
-        Args:
-            query: Câu hỏi pháp lý của người dùng.
-            retrieval_options: Tùy chọn truy xuất (top_k, mode, etc.).
-            rerank_options: Tùy chọn reranking (top_k, etc.).
-            context_policy: Chính sách lắp ráp ngữ cảnh.
-            prompt_version: Phiên bản prompt template.
-            model_identifier: Tên mô hình LLM suy luận.
-            generation_parameters: Siêu tham số sinh văn bản.
-            thinking_mode: Bật/tắt chế độ suy nghĩ của mô hình.
-            max_output_tokens: Số token tối đa cho kết quả sinh.
-            run_metadata: Metadata kèm theo lượt chạy.
-
-        Returns:
-            Đối tượng RAGResponse chuẩn hóa.
-        """
         start_time = time.time()
 
         if not query or not query.strip():
-            raise InvalidPromptError("Câu hỏi truy vấn không được để trống.")
+            raise InvalidPromptError("Query cannot be empty.")
 
         clean_query = query.strip()
         r_opts = retrieval_options or RetrievalOptions(retrieval_top_k=10)
         active_model = model_identifier or self.default_model_identifier
         gen_params = generation_parameters or GenerationParameters()
 
-        # 1. BƯỚC TRUY XUẤT (RETRIEVAL)
         retrieval_result = self.retriever.retrieve(clean_query, r_opts)
 
-        # 2. BƯỚC XẾP HẠNG LẠI (OPTIONAL RERANKING)
         ranked_evidence: Any = retrieval_result
         if self.reranker is not None and not retrieval_result.is_empty:
             rr_opts = rerank_options or RerankOptions(
@@ -121,21 +91,18 @@ class RAGPipeline:
                 clean_query, retrieval_result.items, rr_opts
             )
 
-        # 3. BƯỚC LẮP RÁP NGỮ CẢNH (CONTEXT ASSEMBLY)
         assembled_context: AssembledContext = self.context_assembler.assemble(
             ranked_evidence,
             policy=context_policy,
             query=clean_query,
         )
 
-        # 4. BƯỚC XÂY DỰNG PROMPT (PROMPT BUILDING)
         prompt_request = self.prompt_builder.build(
             query=clean_query,
             context=assembled_context,
             template_version=prompt_version,
         )
 
-        # 5. BƯỚC SINH VĂN BẢN (LLM GENERATION)
         generation_req = GenerationRequest(
             model_identifier=active_model,
             prompt=prompt_request,
@@ -146,18 +113,15 @@ class RAGPipeline:
         )
         generation_result = self.generator.generate(generation_req)
 
-        # 6. BƯỚC PHÂN TÍCH CẤU TRÚC ĐẦU RA (OUTPUT PARSING)
         legal_answer: LegalAnswer = self.output_parser.parse(
             generation_result.raw_response
         )
 
-        # 7. BƯỚC XÁC THỰC TRÍCH DẪN (CITATION VALIDATION)
         citation_validation = self.citation_validator.validate(
             legal_answer,
             assembled_context.evidence_registry,
         )
 
-        # 8. BƯỚC PHÁT HIỆN VÀ ĐIỀU HÒA TỪ CHỐI (ABSTENTION DETECTION & VALIDATION)
         raw_decision: AbstentionDecision = self.abstention_detector.detect(
             context=assembled_context,
             answer=legal_answer,

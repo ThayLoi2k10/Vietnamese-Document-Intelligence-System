@@ -1,12 +1,4 @@
-# src/rag/generation/domain/models.py
-"""Mô hình miền cho hệ thống sinh văn bản LLM Generation Phase 9.
-
-Tuân thủ Mục 12: LLM Generator Interface:
-    - 12.3 GenerationRequest
-    - 12.4 GenerationResult
-    - 12.5 Thinking mode
-    - 12.6 Determinism
-"""
+"""Domain models for LLM generation requests, parameters, and results."""
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -25,8 +17,6 @@ class FinishStatus(str, Enum):
 
 @dataclass
 class GenerationParameters:
-    """Các siêu tham số điều khiển quá trình sinh của mô hình ngôn ngữ."""
-
     temperature: float = 0.0
     top_p: float = 1.0
     seed: Optional[int] = None
@@ -39,8 +29,6 @@ class GenerationParameters:
 
 @dataclass
 class GenerationRequest:
-    """Yêu cầu suy luận gửi tới LLM Generator."""
-
     model_identifier: str
     prompt: PromptRequest
     max_output_tokens: int = 1024
@@ -65,8 +53,6 @@ class GenerationRequest:
 
 @dataclass
 class GenerationResult:
-    """Kết quả sinh thô và metadata từ LLM Generator."""
-
     model_identifier: str
     raw_response: str
     generation_metadata: Dict[str, Any] = field(default_factory=dict)

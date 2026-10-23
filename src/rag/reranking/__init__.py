@@ -1,4 +1,5 @@
-# src/rag/reranking/__init__.py
+"""Reranking interfaces, domain models, and adapters."""
+
 from src.rag.reranking.adapters import (
     CrossEncoderRerankerAdapter,
     MockReranker,

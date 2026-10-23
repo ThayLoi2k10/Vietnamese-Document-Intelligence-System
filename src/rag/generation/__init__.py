@@ -1,4 +1,5 @@
-# src/rag/generation/__init__.py
+"""LLM generation models, interfaces, adapters, and mocks."""
+
 from src.rag.generation.adapters import GenericLLMAdapter
 from src.rag.generation.domain import (
     FinishStatus,

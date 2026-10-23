@@ -1,20 +1,13 @@
-# src/rag/evaluation/interfaces/evaluator.py
-"""Interface trừu tượng cho hệ thống đánh giá Phase 9 RAG.
-
-Tuân thủ Mục 17: Evaluation Architecture:
-    - 17.1 Phân tách hệ thống đánh giá khỏi generation orchestration
-    - 17.2 RAGEvaluator interface
-    - 17.4 Các evaluator chuyên biệt (Faithfulness, AnswerRelevance, CitationPrecision/Recall, AbstentionCorrectness, UnsupportedClaim)
-"""
+"""Abstract generation evaluators and orchestrators for RAG performance."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from src.rag.evaluation.metrics.models import EvaluationInput, EvaluationReport
 
 
 class BaseGenerationEvaluator(ABC):
-    """Giao diện cơ sở cho một độ đo đánh giá câu trả lời thế hệ RAG."""
+    """Base interface for single-metric generation evaluation."""
 
     @property
     @abstractmethod
@@ -23,7 +16,6 @@ class BaseGenerationEvaluator(ABC):
 
     @abstractmethod
     def evaluate_sample(self, item: EvaluationInput) -> float:
-        """Đánh giá một mẫu đơn lẻ và trả về điểm số [0.0, 1.0]."""
         pass
 
     def evaluate_batch(self, items: List[EvaluationInput]) -> List[float]:
@@ -31,55 +23,43 @@ class BaseGenerationEvaluator(ABC):
 
 
 class FaithfulnessEvaluator(BaseGenerationEvaluator):
-    """Đánh giá độ trung thực (Faithfulness / Groundedness) của câu trả lời đối với bằng chứng."""
-
     @property
     def metric_name(self) -> str:
         return "faithfulness"
 
 
 class AnswerRelevanceEvaluator(BaseGenerationEvaluator):
-    """Đánh giá mức độ liên quan và giải quyết câu hỏi của câu trả lời."""
-
     @property
     def metric_name(self) -> str:
         return "answer_relevance"
 
 
 class CitationPrecisionEvaluator(BaseGenerationEvaluator):
-    """Đánh giá độ chính xác của các trích dẫn (tỷ lệ trích dẫn thực sự liên quan/chính xác)."""
-
     @property
     def metric_name(self) -> str:
         return "citation_precision"
 
 
 class CitationRecallEvaluator(BaseGenerationEvaluator):
-    """Đánh giá độ bao phủ của các trích dẫn so với ground truth."""
-
     @property
     def metric_name(self) -> str:
         return "citation_recall"
 
 
 class AbstentionCorrectnessEvaluator(BaseGenerationEvaluator):
-    """Đánh giá tính chính xác của quyết định từ chối trả lời."""
-
     @property
     def metric_name(self) -> str:
         return "abstention_correctness"
 
 
 class UnsupportedClaimEvaluator(BaseGenerationEvaluator):
-    """Đánh giá tỷ lệ các tuyên bố trong câu trả lời không có căn cứ chứng minh."""
-
     @property
     def metric_name(self) -> str:
         return "unsupported_claim_rate"
 
 
 class RAGEvaluator:
-    """Bộ điều phối đánh giá tổng hợp của Phase 9."""
+    """Orchestrator coordinating execution across multiple evaluators."""
 
     def __init__(
         self,
@@ -96,7 +76,6 @@ class RAGEvaluator:
         dataset_split: str = "VALIDATION",
         component_versions: Optional[Dict[str, str]] = None,
     ) -> EvaluationReport:
-        """Thực thi đánh giá trên toàn bộ tập dữ liệu mẫu."""
         metric_results: Dict[str, float] = {}
         sample_count = len(dataset)
 

@@ -1,25 +1,19 @@
-# src/rag/evaluation/backends/rule_based_evaluator.py
-"""Triển khai các bộ đánh giá dựa trên luật và đối soát mặt đất (Rule-based Evaluators).
-
-Tuân thủ Mục 17.4: Generation evaluation interfaces & Mục 22.1: Test philosophy (không đòi hỏi LLM inference).
-"""
+"""Rule-based evaluators calculating grounded precision, recall, and abstention correctness."""
 
 from typing import Set
 
 from src.rag.evaluation.interfaces.evaluator import (
     AbstentionCorrectnessEvaluator,
-    AnswerRelevanceEvaluator,
     CitationPrecisionEvaluator,
     CitationRecallEvaluator,
     FaithfulnessEvaluator,
-    UnsupportedClaimEvaluator,
 )
 from src.rag.evaluation.metrics.models import EvaluationInput
 from src.rag.output.schemas.response_schema import ConfidenceLevel
 
 
 class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
-    """Tính toán tỷ lệ các trích dẫn trong câu trả lời có mặt trong ground truth."""
+    """Calculates precision of answer citations against ground truth."""
 
     def evaluate_sample(self, item: EvaluationInput) -> float:
         citations = item.rag_response.legal_answer.citations
@@ -29,7 +23,6 @@ class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
         gt_laws = {str(lid).strip().lower() for lid in item.ground_truth_law_ids}
         gt_arts = {int(aid) for aid in item.ground_truth_article_ids}
 
-        # 1. Ánh xạ context_position -> ContextItem từ assembled_context
         context_by_number = {
             ctx.context_position: ctx
             for ctx in item.rag_response.assembled_context.items
@@ -38,7 +31,6 @@ class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
         correct_count = 0
         for c in citations:
             is_correct = False
-            # 2. Resolve citation thông qua assembled_context
             ctx = context_by_number.get(c.citation_number)
             if ctx is not None:
                 if ctx.global_article_id is not None and ctx.global_article_id in gt_arts:
@@ -46,7 +38,6 @@ class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
                 elif ctx.law_id and ctx.law_id.strip().lower() in gt_laws:
                     is_correct = True
 
-            # 3. Fallback chỉ để tương thích với future/public schemas
             if not is_correct:
                 if c.global_article_id is not None and c.global_article_id in gt_arts:
                     is_correct = True
@@ -60,7 +51,7 @@ class RuleBasedCitationPrecisionEvaluator(CitationPrecisionEvaluator):
 
 
 class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
-    """Tính toán tỷ lệ các căn cứ trong ground truth được trích dẫn trong câu trả lời."""
+    """Calculates recall of ground truth evidence covered by citations."""
 
     def evaluate_sample(self, item: EvaluationInput) -> float:
         gt_laws = {str(lid).strip().lower() for lid in item.ground_truth_law_ids}
@@ -69,7 +60,6 @@ class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
         if not gt_laws and not gt_arts:
             return 1.0
 
-        # Ánh xạ context_position -> ContextItem từ assembled_context
         context_by_number = {
             ctx.context_position: ctx
             for ctx in item.rag_response.assembled_context.items
@@ -78,7 +68,6 @@ class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
         cited_arts = set()
         cited_laws = set()
 
-        # Resolve từng citation qua assembled_context để lấy canonical global_article_id / law_id
         for c in item.rag_response.legal_answer.citations:
             ctx = context_by_number.get(c.citation_number)
             if ctx is not None:
@@ -87,13 +76,11 @@ class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
                 if ctx.law_id:
                     cited_laws.add(ctx.law_id.strip().lower())
             else:
-                # Fallback chỉ để tương thích với future/public schemas
                 if c.global_article_id is not None:
                     cited_arts.add(c.global_article_id)
                 if c.law_id:
                     cited_laws.add(c.law_id.strip().lower())
 
-        matched_count = 0
         if gt_arts:
             matched_count = len(gt_arts & cited_arts)
             total_gt = len(gt_arts)
@@ -107,33 +94,25 @@ class RuleBasedCitationRecallEvaluator(CitationRecallEvaluator):
 
 
 class RuleBasedAbstentionCorrectnessEvaluator(AbstentionCorrectnessEvaluator):
-    """Đánh giá tính chính xác của quyết định từ chối:
-
-    - Nếu is_answerable=True -> Quyết định đúng khi status != INSUFFICIENT
-    - Nếu is_answerable=False -> Quyết định đúng khi status == INSUFFICIENT
-    """
+    """Evaluates whether abstention aligns with answerability."""
 
     def evaluate_sample(self, item: EvaluationInput) -> float:
         is_answerable = item.is_answerable
         decision_status = item.rag_response.abstention_decision.status
 
         if not is_answerable:
-            # Câu hỏi không thể trả lời được: hệ thống nên từ chối
             return 1.0 if decision_status == ConfidenceLevel.INSUFFICIENT else 0.0
-        else:
-            # Câu hỏi trả lời được: hệ thống không nên từ chối toàn bộ
-            return 1.0 if decision_status != ConfidenceLevel.INSUFFICIENT else 0.0
+        return 1.0 if decision_status != ConfidenceLevel.INSUFFICIENT else 0.0
 
 
 class HeuristicFaithfulnessEvaluator(FaithfulnessEvaluator):
-    """Đánh giá độ trung thực dựa trên độ bao phủ từ vựng (Lexical Grounding)."""
+    """Evaluates lexical grounding of the answer against context items."""
 
     def evaluate_sample(self, item: EvaluationInput) -> float:
         answer_text = item.rag_response.legal_answer.answer
         if not answer_text or not answer_text.strip():
             return 0.0
 
-        # Lấy toàn bộ từ trong ngữ cảnh
         context_words: Set[str] = set()
         for ctx_item in item.rag_response.assembled_context.items:
             context_words.update(ctx_item.text.lower().split())

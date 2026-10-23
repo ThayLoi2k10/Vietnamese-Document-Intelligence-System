@@ -1,29 +1,16 @@
-# src/retrieval/chunking/base.py
-"""Lớp trừu tượng BaseChunker cho toàn bộ các chiến lược phân đoạn trong Phase 7.
-
-Tuân thủ nghiêm ngặt đặc tả Phase 7:
-    - Mục 6: Core Design Principle (cân bằng độ đặc thù ngữ nghĩa và tính toàn vẹn pháp lý)
-    - Mục 12: Provenance Invariants (bảo toàn điều luật rỗng, không làm mất text)
-    - Mục 13: Deterministic Versioning & Identity
-"""
+"""Lớp cơ sở trừu tượng cho các chiến lược phân đoạn văn bản pháp luật."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 import pandas as pd
 from transformers import AutoTokenizer
 
-from src.retrieval.chunking.models import (
-    LegalChunk,
-    compute_content_hash,
-    generate_deterministic_chunk_id,
-)
+from src.retrieval.chunking.models import LegalChunk
 
 OFFICIAL_MODEL_NAME = "BAAI/bge-m3"
 
 
 class BaseChunker(ABC):
-    """Lớp cơ sở trừu tượng cho tất cả các thuật toán chunking."""
-
     def __init__(
         self,
         strategy_name: str,
@@ -48,7 +35,6 @@ class BaseChunker(ABC):
             self.tokenizer = tokenizer
 
     def count_tokens(self, text: str) -> int:
-        """Đếm chính xác số lượng token của văn bản theo BGE-M3 tokenizer."""
         if not text:
             return 0
         ids = self.tokenizer.encode(
@@ -67,19 +53,13 @@ class BaseChunker(ABC):
         law_id: str,
         article_identifier: str,
     ) -> List[LegalChunk]:
-        """Phân đoạn một điều luật thành danh sách LegalChunk.
-        
-        Nếu điều luật rỗng, bắt buộc trả về danh sách rỗng [] (total_chunks = 0).
-        """
         pass
 
     def chunk_corpus(
         self, corpus_df: pd.DataFrame, show_progress: bool = False
     ) -> List[LegalChunk]:
-        """Phân đoạn toàn bộ dataframe corpus điều luật thành danh sách phẳng LegalChunk."""
         all_chunks: List[LegalChunk] = []
 
-        # Đảm bảo các cột định danh cần thiết
         id_col = "global_article_id" if "global_article_id" in corpus_df.columns else "article_id"
         text_col = "text" if "text" in corpus_df.columns else "text_preprocessed"
         law_col = "law_id" if "law_id" in corpus_df.columns else "doc_id"

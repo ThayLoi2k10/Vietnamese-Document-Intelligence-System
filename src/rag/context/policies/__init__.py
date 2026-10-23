@@ -1,4 +1,5 @@
-# src/rag/context/policies/__init__.py
+"""Context policies exports."""
+
 from src.rag.context.policies.policy_types import (
     BudgetOverflowPolicy,
     ContextPolicy,

@@ -1,4 +1,5 @@
-# src/rag/evaluation/__init__.py
+"""Evaluation metrics, backends, and report generators for RAG systems."""
+
 from src.rag.evaluation.backends import (
     HeuristicFaithfulnessEvaluator,
     RuleBasedAbstentionCorrectnessEvaluator,

@@ -1,4 +1,5 @@
-# src/rag/abstention/__init__.py
+"""Abstention detection, decision models, and policy validators."""
+
 from src.rag.abstention.detection import (
     AbstentionDecision,
     AbstentionDetector,

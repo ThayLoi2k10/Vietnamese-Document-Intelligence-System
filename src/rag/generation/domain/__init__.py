@@ -1,4 +1,5 @@
-# src/rag/generation/domain/__init__.py
+"""Generation domain models exports."""
+
 from src.rag.generation.domain.models import (
     FinishStatus,
     GenerationParameters,

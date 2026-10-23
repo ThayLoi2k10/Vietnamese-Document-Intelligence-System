@@ -1,10 +1,4 @@
-# src/rag/generation/adapters/generic_llm_adapter.py
-"""Adapter suy luận LLM chung (Generic LLM Adapter).
-
-Tuân thủ Mục 12.2: Model abstraction & Mục 12.6: Determinism:
-    - Provider-neutral request/response
-    - Quản lý siêu tham số và lưu vết metadata
-"""
+"""Generic LLM adapter bridging inference functions to the generator interface."""
 
 from typing import Any, Callable, Dict, Optional
 
@@ -21,7 +15,7 @@ from src.rag.generation.interfaces.generator import LLMGenerator
 
 
 class GenericLLMAdapter(LLMGenerator):
-    """Adapter suy luận tổng quát tương thích với các backend vLLM / HuggingFace / API."""
+    """General inference adapter compatible with API and local model backends."""
 
     def __init__(
         self,
@@ -39,12 +33,12 @@ class GenericLLMAdapter(LLMGenerator):
             and request.model_identifier not in self.supported_models
         ):
             raise UnsupportedModelConfigurationError(
-                f"Model '{request.model_identifier}' không nằm trong danh sách hỗ trợ: {self.supported_models}"
+                f"Model '{request.model_identifier}' is not supported: {self.supported_models}"
             )
 
         if self.inference_fn is None:
             raise LLMGenerationError(
-                "GenericLLMAdapter chưa được cấu hình inference_fn để thực thi suy luận."
+                "GenericLLMAdapter requires an inference_fn to execute."
             )
 
         try:
@@ -62,11 +56,11 @@ class GenericLLMAdapter(LLMGenerator):
                 request.prompt.user_prompt,
                 call_params,
             )
-        except Exception as e:
+        except Exception as err:
             raise LLMGenerationError(
-                f"Lỗi khi thực thi suy luận LLM ({request.model_identifier}): {e}",
+                f"LLM inference error ({request.model_identifier}): {err}",
                 component_identifier=request.model_identifier,
-                details={"error": str(e)},
+                details={"error": str(err)},
             )
 
         return GenerationResult(

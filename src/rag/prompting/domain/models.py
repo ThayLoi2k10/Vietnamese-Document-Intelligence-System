@@ -1,12 +1,4 @@
-# src/rag/prompting/domain/models.py
-"""Mô hình miền cho hệ thống Prompting Phase 9 RAG.
-
-Tuân thủ Mục 11: Prompt Architecture:
-    - 11.1 Components: PromptTemplate, PromptContext, GenerationInstructions, PromptBuilder
-    - 11.2 Versioned PromptTemplate
-    - 11.3 GenerationInstructions (Grounding, Citation, Abstention, Format)
-    - 11.4 PromptContext
-"""
+"""Domain models for generation instructions, templates, and prompt requests."""
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
@@ -16,8 +8,6 @@ from src.rag.context.domain.models import ContextItem
 
 @dataclass
 class GenerationInstructions:
-    """Đặc tả các nhóm chỉ dẫn cho mô hình ngôn ngữ lớn."""
-
     grounding_instruction: str
     citation_instruction: str
     abstention_instruction: str
@@ -35,9 +25,7 @@ class GenerationInstructions:
 
 @dataclass
 class PromptTemplate:
-    """Template định nghĩa cấu trúc prompt có phiên bản (Versioned Prompt Template)."""
-
-    template_version: str  # Ví dụ: "prompt_v1"
+    template_version: str
     template_name: str
     system_template: str
     user_template: str
@@ -50,8 +38,6 @@ class PromptTemplate:
 
 @dataclass
 class PromptContext:
-    """Tập hợp dữ liệu cần thiết trước khi xây dựng prompt."""
-
     query: str
     evidence_items: List[Dict[str, Any]]
     citation_reference_mapping: Dict[str, str]
@@ -62,8 +48,6 @@ class PromptContext:
 
 @dataclass
 class PromptRequest:
-    """Prompt hoàn chỉnh đã được render sẵn sàng gửi tới LLM Generator."""
-
     system_prompt: str
     user_prompt: str
     prompt_version: str

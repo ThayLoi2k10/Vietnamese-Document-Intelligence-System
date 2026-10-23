@@ -1,8 +1,4 @@
-# src/rag/evaluation/metrics/models.py
-"""Mô hình dữ liệu đánh giá cho Phase 9 RAG.
-
-Tuân thủ Mục 17.6: Evaluation report & Mục 7.1: Core value objects.
-"""
+"""Domain models for evaluation inputs and experiment reports."""
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
@@ -12,8 +8,6 @@ from src.rag.pipeline.models import RAGResponse
 
 @dataclass
 class EvaluationInput:
-    """Đầu vào đánh giá cho một mẫu câu hỏi."""
-
     query: str
     rag_response: RAGResponse
     ground_truth_answer: Optional[str] = None
@@ -25,8 +19,6 @@ class EvaluationInput:
 
 @dataclass
 class EvaluationReport:
-    """Báo cáo đánh giá hoàn chỉnh cho một thực nghiệm RAG."""
-
     experiment_id: str
     dataset_split: str
     sample_count: int

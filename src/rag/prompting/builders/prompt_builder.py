@@ -1,19 +1,15 @@
-# src/rag/prompting/builders/prompt_builder.py
-"""Xây dựng PromptRequest hoàn chỉnh từ AssembledContext và câu hỏi người dùng.
-
-Tuân thủ Mục 11.5: Prompt builder responsibilities & Mục 7.4: Internal vs public metadata.
-"""
+"""Deterministic prompt builder assembling system and user prompts."""
 
 from typing import Dict, Optional
 
-from src.rag.context.domain.models import AssembledContext, ContextItem
+from src.rag.context.domain.models import AssembledContext
 from src.rag.errors.exceptions import InvalidPromptError
 from src.rag.prompting.domain.models import PromptRequest, PromptTemplate
 from src.rag.prompting.templates.registry import PromptTemplateRegistry
 
 
 class PromptBuilder:
-    """Builder chịu trách nhiệm lắp ghép prompt tất định từ context và template."""
+    """Assembles deterministic system and user prompts from context and template."""
 
     def __init__(
         self,
@@ -29,19 +25,17 @@ class PromptBuilder:
         context: AssembledContext,
         template_version: Optional[str] = None,
     ) -> PromptRequest:
-        """Tạo PromptRequest tất định."""
         if not query or not query.strip():
-            raise InvalidPromptError("Câu hỏi truy vấn không được để trống.")
+            raise InvalidPromptError("Query cannot be empty.")
 
         version = template_version or self.default_version
         template: PromptTemplate = self.template_registry.get(version)
 
-        # Định dạng danh sách bằng chứng pháp lý đưa vào prompt (Chỉ dữ liệu công khai theo Mục 7.4)
         evidence_blocks = []
         reference_mapping: Dict[str, str] = {}
 
-        for idx, item in enumerate(context.items, start=1):
-            ref_id = item.context_item_id  # Ví dụ: "[1]"
+        for item in context.items:
+            ref_id = item.context_item_id
             reference_mapping[ref_id] = item.source_identity
 
             header = f"TÀI LIỆU {ref_id}: Văn bản {item.law_id}"
@@ -51,21 +45,21 @@ class PromptBuilder:
             block = f"{header}\nNội dung:\n{item.text.strip()}"
             evidence_blocks.append(block)
 
-        if evidence_blocks:
-            evidence_text = "\n\n".join(evidence_blocks)
-        else:
-            evidence_text = "(Không tìm thấy tài liệu căn cứ pháp lý phù hợp)"
+        evidence_text = (
+            "\n\n".join(evidence_blocks)
+            if evidence_blocks
+            else "(Không tìm thấy tài liệu căn cứ pháp lý phù hợp)"
+        )
 
-        # Render template
         try:
             rendered_user = template.user_template.format(
                 query=query.strip(),
                 evidence_text=evidence_text,
             )
             rendered_system = template.system_template
-        except KeyError as e:
+        except KeyError as err:
             raise InvalidPromptError(
-                f"Thiếu trường thay thế khi render prompt template '{version}': {e}"
+                f"Missing template placeholder in '{version}': {err}"
             )
 
         return PromptRequest(

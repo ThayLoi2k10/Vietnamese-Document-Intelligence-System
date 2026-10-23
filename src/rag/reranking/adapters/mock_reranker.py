@@ -1,8 +1,4 @@
-# src/rag/reranking/adapters/mock_reranker.py
-"""Reranker giả lập phục vụ kiểm thử và kiểm chứng pipeline không cần mô hình thật.
-
-Tuân thủ Mục 9.4: Reranker contract.
-"""
+"""Mock reranker implementation for testing and pipeline validation."""
 
 from typing import Callable, List, Optional
 
@@ -16,7 +12,7 @@ from src.rag.retrieval.domain.models import RetrievalItem
 
 
 class MockReranker(Reranker):
-    """Mock Reranker cho phép mô phỏng việc xếp hạng lại ứng viên."""
+    """Configurable mock reranker simulating candidate re-ranking."""
 
     def __init__(
         self,
@@ -42,15 +38,12 @@ class MockReranker(Reranker):
             if self.scoring_fn is not None:
                 new_score = self.scoring_fn(query, item)
             elif self.reverse_order:
-                # Đảo ngược thứ hạng để test rerank làm thay đổi thứ tự
                 new_score = float(idx)
             else:
-                # Giữ nguyên tương đối hoặc sinh điểm rerank giả định
                 base = item.score if item.score is not None else 1.0
                 new_score = float(base * 1.5)
             scored_list.append((item, new_score))
 
-        # Sắp xếp giảm dần theo new_score
         scored_list.sort(key=lambda x: x[1], reverse=True)
 
         ranked_candidates: List[RankedCandidate] = []

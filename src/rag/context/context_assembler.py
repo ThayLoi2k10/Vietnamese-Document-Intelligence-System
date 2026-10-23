@@ -1,13 +1,4 @@
-# src/rag/context/context_assembler.py
-"""Bộ lắp ráp và quản lý ngữ cảnh (ContextAssembler) cho Phase 9 RAG.
-
-Tuân thủ Mục 10: Context Assembly:
-    - 10.1 Responsibility: assemble(ranked_evidence, context_policy) -> AssembledContext
-    - 10.2 Assembly pipeline: Filtering -> Deduplication -> Expansion -> Ordering -> Budget enforcement
-    - 10.4 Deduplication policies
-    - 10.6 Ordering policies
-    - 10.8 & 10.9 Token budget enforcement và BudgetOverflowPolicy
-"""
+"""Context assembler coordinating filtering, deduplication, expansion, ordering, and token budget."""
 
 from typing import Any, Dict, List, Optional, Set, Union
 
@@ -29,7 +20,7 @@ from src.rag.retrieval.domain.models import RetrievalItem, RetrievalResult
 
 
 class ContextAssembler:
-    """Lắp ráp danh sách ứng viên truy xuất/rerank thành ngữ cảnh có giới hạn, có trật tự."""
+    """Assembles retrieved or reranked evidence into a budget-enforced, ordered context."""
 
     def __init__(
         self,
@@ -48,7 +39,6 @@ class ContextAssembler:
             List[RankedCandidate],
         ],
     ) -> List[Dict[str, Any]]:
-        """Trích xuất danh sách ứng viên đồng nhất từ các dạng dữ liệu đầu vào khác nhau."""
         extracted: List[Dict[str, Any]] = []
 
         if isinstance(ranked_evidence, RetrievalResult):
@@ -109,56 +99,45 @@ class ContextAssembler:
         query: str = "",
         token_counter: Optional[TokenCounter] = None,
     ) -> AssembledContext:
-        """Thực thi pipeline lắp ráp ngữ cảnh hoàn chỉnh."""
         active_policy = policy or self.default_policy
         counter = token_counter or self.token_counter
 
         candidates = self._extract_candidates(ranked_evidence)
 
-        # 1. Lọc theo ngưỡng điểm (Score Filtering)
         if active_policy.score_threshold is not None:
-            filtered = []
-            for c in candidates:
-                sc = c["score"]
-                if sc is None or sc >= active_policy.score_threshold:
-                    filtered.append(c)
-            candidates = filtered
+            candidates = [
+                c for c in candidates
+                if c["score"] is None or c["score"] >= active_policy.score_threshold
+            ]
 
-        # 2. Khử trùng lặp (Deduplication)
         deduped_candidates = self._deduplicate(
             candidates,
             active_policy.deduplication_policy,
             active_policy.deduplication_options,
         )
 
-        # 3. Giới hạn context_top_k
         limit = active_policy.context_top_k
         if active_policy.max_context_items is not None:
             limit = min(limit, active_policy.max_context_items)
         selected_candidates = deduped_candidates[:limit]
 
-        # 4. Mở rộng ngữ cảnh (Parent / Context Expansion) nếu được bật
         expanded_candidates = self._expand(
             selected_candidates,
             active_policy.expansion_policy,
             active_policy.expansion_options,
         )
 
-        # 5. Sắp xếp thứ tự ngữ cảnh (Ordering)
         ordered_candidates = self._order(
             expanded_candidates, active_policy.ordering_strategy
         )
 
-        # 6. Kiểm soát và xử lý ngân sách token (Token Budget Enforcement)
         final_items, total_tokens = self._enforce_token_budget(
             ordered_candidates, active_policy, counter
         )
 
-        # 7. Xây dựng Evidence Registry cho Citation Validation (Section 14.4)
         evidence_registry: Dict[str, ContextItem] = {}
         for it in final_items:
             evidence_registry[it.context_item_id] = it
-            # Cho phép tra cứu không kèm dấu ngoặc vuông
             bare_id = it.context_item_id.strip("[]")
             if bare_id not in evidence_registry:
                 evidence_registry[bare_id] = it
@@ -190,7 +169,6 @@ class ContextAssembler:
         policy: DeduplicationPolicy,
         options: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        """Thực hiện khử trùng lặp theo chính sách."""
         if policy == DeduplicationPolicy.DISABLED:
             return candidates
 
@@ -204,21 +182,18 @@ class ContextAssembler:
         for c in candidates:
             item: RetrievalItem = c["item"]
 
-            # Exact chunk ID
             if policy == DeduplicationPolicy.EXACT_CHUNK_ID:
                 if item.chunk_id and item.chunk_id in seen_chunk_ids:
                     continue
                 if item.chunk_id:
                     seen_chunk_ids.add(item.chunk_id)
 
-            # Exact text
             elif policy == DeduplicationPolicy.EXACT_TEXT:
                 norm_text = item.text.strip().lower()
                 if norm_text in seen_texts:
                     continue
                 seen_texts.add(norm_text)
 
-            # Same article limit
             elif policy == DeduplicationPolicy.SAME_ARTICLE_LIMIT:
                 art_key = (
                     str(item.global_article_id)
@@ -230,7 +205,6 @@ class ContextAssembler:
                     continue
                 article_counts[art_key] = curr_cnt + 1
 
-            # Overlap threshold
             elif policy == DeduplicationPolicy.OVERLAP_THRESHOLD:
                 is_overlap = False
                 c_words = set(item.text.lower().split())
@@ -254,7 +228,6 @@ class ContextAssembler:
         policy: ExpansionPolicy,
         options: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        """Mở rộng ngữ cảnh nếu chính sách yêu cầu và dữ liệu upstream hỗ trợ."""
         if policy == ExpansionPolicy.DISABLED:
             return candidates
 
@@ -273,7 +246,6 @@ class ContextAssembler:
                 expanded_text = "\n".join(parts)
 
             c_expanded = dict(c)
-            # Tạo bản sao item với text đã mở rộng nếu có
             if expanded_text != item.text:
                 c_expanded["item"] = RetrievalItem(
                     chunk_id=item.chunk_id,
@@ -297,7 +269,6 @@ class ContextAssembler:
         candidates: List[Dict[str, Any]],
         strategy: OrderingStrategy,
     ) -> List[Dict[str, Any]]:
-        """Sắp xếp các ứng viên theo chiến lược cấu hình."""
         if strategy == OrderingStrategy.SCORE_DESCENDING:
             return sorted(
                 candidates,
@@ -307,7 +278,6 @@ class ContextAssembler:
                 reverse=True,
             )
         elif strategy == OrderingStrategy.LEGAL_ORDER:
-            # Sắp xếp theo law_id, rồi article_identifier, rồi chunk_order
             return sorted(
                 candidates,
                 key=lambda x: (
@@ -324,14 +294,13 @@ class ContextAssembler:
         policy: ContextPolicy,
         counter: TokenCounter,
     ) -> tuple[List[ContextItem], int]:
-        """Áp dụng ngân sách token nghiêm ngặt và hành vi overflow đã cấu hình."""
         max_tokens = policy.max_context_tokens
         overflow_action = policy.budget_overflow_policy
 
         accepted_items: List[ContextItem] = []
         current_tokens = 0
 
-        for idx, c in enumerate(candidates, start=1):
+        for c in candidates:
             item: RetrievalItem = c["item"]
             item_text = item.text
             item_tokens = (
@@ -358,28 +327,21 @@ class ContextAssembler:
                 accepted_items.append(ctx_item)
                 current_tokens += item_tokens
             else:
-                # Xử lý trường hợp vượt ngân sách
                 if overflow_action == BudgetOverflowPolicy.RAISE_CONTEXT_BUDGET_ERROR:
                     raise ContextBudgetExceededError(
-                        f"Kích thước ngữ cảnh vượt quá ngân sách cho phép: "
-                        f"current={current_tokens} + item={item_tokens} > max={max_tokens}."
+                        f"Context size exceeded token budget: {current_tokens + item_tokens} > {max_tokens}."
                     )
                 elif overflow_action == BudgetOverflowPolicy.REQUIRE_SMALLER_CONTEXT_K:
                     raise ContextBudgetExceededError(
-                        f"Ngân sách token không đủ cho context_top_k={policy.context_top_k}. "
-                        f"Yêu cầu cấu hình context_top_k nhỏ hơn."
+                        f"Token budget insufficient for context_top_k={policy.context_top_k}."
                     )
                 elif overflow_action == BudgetOverflowPolicy.DROP_LOWEST_PRIORITY_ITEMS:
-                    # Bỏ qua các item có độ ưu tiên thấp hơn
                     continue
                 elif overflow_action == BudgetOverflowPolicy.TRUNCATE_BY_POLICY:
                     remaining_tokens = max(0, max_tokens - current_tokens)
                     if remaining_tokens > 10:
-                        # Cắt bớt văn bản để vừa ngân sách
                         chars_to_keep = int(remaining_tokens * 3.5)
-                        truncated_text = (
-                            item_text[:chars_to_keep] + "... [đã cắt bớt]"
-                        )
+                        truncated_text = item_text[:chars_to_keep] + "... [đã cắt bớt]"
                         t_tokens = counter.count_tokens(truncated_text)
                         ctx_item = ContextItem(
                             context_item_id=f"[{len(accepted_items) + 1}]",

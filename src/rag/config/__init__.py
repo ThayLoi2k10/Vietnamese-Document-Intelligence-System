@@ -1,4 +1,5 @@
-# src/rag/config/__init__.py
+"""Configuration schemas, loaders, and validators for RAG experiments."""
+
 from src.rag.config.loaders import ConfigLoader
 from src.rag.config.schemas import (
     ContextConfig,

@@ -1,14 +1,6 @@
-# src/rag/output/schemas/response_schema.py
-"""Schema công khai cho câu trả lời pháp lý có cấu trúc (Structured Legal Answer).
+"""Public schema for structured legal answers and citations."""
 
-Tuân thủ Mục 13: Structured Output:
-    - 13.1 Public schema: answer, citations, confidence_level, abstention_reason
-    - 13.2 Citation object
-    - 13.3 Confidence semantics (FULL, PARTIAL, INSUFFICIENT)
-    - 13.4 Không chứa reasoning trace trong schema công khai
-"""
-
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -23,8 +15,6 @@ class ConfidenceLevel(str, Enum):
 
 @dataclass
 class Citation:
-    """Đại diện một trích dẫn pháp lý trong câu trả lời."""
-
     citation_number: int
     law_id: str
     article_identifier: Optional[str] = None
@@ -39,14 +29,14 @@ class Citation:
     def from_dict(cls, data: Dict[str, Any]) -> "Citation":
         if "citation_number" not in data or "law_id" not in data:
             raise MalformedStructuredOutputError(
-                "Citation thiếu trường bắt buộc 'citation_number' hoặc 'law_id'.",
+                "Citation requires 'citation_number' and 'law_id'.",
                 details={"data": data},
             )
         try:
             c_num = int(data["citation_number"])
         except (ValueError, TypeError):
             raise MalformedStructuredOutputError(
-                f"Trường 'citation_number' phải là số nguyên: {data.get('citation_number')}"
+                f"Field 'citation_number' must be an integer, got: {data.get('citation_number')}"
             )
 
         return cls(
@@ -75,26 +65,20 @@ class Citation:
 
 @dataclass
 class LegalAnswer:
-    """Cấu trúc công khai của một câu trả lời pháp lý chuẩn."""
-
     answer: str
     citations: List[Citation]
     confidence_level: ConfidenceLevel
     abstention_reason: Optional[str] = None
 
     def validate(self) -> None:
-        """Kiểm tra tính hợp lệ của câu trả lời."""
         if self.answer is None:
-            raise MalformedStructuredOutputError("Trường 'answer' không được là None.")
+            raise MalformedStructuredOutputError("Field 'answer' cannot be None.")
         if not isinstance(self.citations, list):
-            raise MalformedStructuredOutputError("Trường 'citations' phải là một danh sách.")
+            raise MalformedStructuredOutputError("Field 'citations' must be a list.")
         if not isinstance(self.confidence_level, ConfidenceLevel):
             raise MalformedStructuredOutputError(
-                f"Trường 'confidence_level' không hợp lệ: {self.confidence_level}"
+                f"Invalid 'confidence_level': {self.confidence_level}"
             )
-        if self.confidence_level == ConfidenceLevel.INSUFFICIENT and not self.abstention_reason:
-            # Khuyến nghị hoặc yêu cầu lý do từ chối khi INSUFFICIENT
-            pass
 
     def to_dict(self) -> Dict[str, Any]:
         return {

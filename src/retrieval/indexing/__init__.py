@@ -1,5 +1,4 @@
-# src/retrieval/indexing/__init__.py
-"""Package quản lý và lưu trữ chỉ mục vector bền vững (Phase 8)."""
+"""Package quản lý chỉ mục và kho lưu trữ vector cho văn bản pháp luật."""
 
 from src.retrieval.indexing.base import BaseVectorStore
 from src.retrieval.indexing.faiss_vector_store import FaissVectorStore

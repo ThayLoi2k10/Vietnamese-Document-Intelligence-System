@@ -1,4 +1,5 @@
-# src/rag/output/parsers/__init__.py
+"""Output parsers exports."""
+
 from src.rag.output.parsers.structured_parser import OutputParser
 
 __all__ = ["OutputParser"]

@@ -1,4 +1,6 @@
-# src/rag/output/__init__.py
+"""Structured output schemas and parsers for LLM responses."""
+
+from src.rag.output.formatter import LegalResponseFormatter
 from src.rag.output.parsers import OutputParser
 from src.rag.output.schemas import (
     Citation,
@@ -11,4 +13,5 @@ __all__ = [
     "Citation",
     "LegalAnswer",
     "OutputParser",
+    "LegalResponseFormatter",
 ]

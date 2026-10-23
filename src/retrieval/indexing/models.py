@@ -1,29 +1,18 @@
-# src/retrieval/indexing/models.py
-"""Mô hình dữ liệu điểm vector và kết quả truy vấn cho Phase 8.
+"""Mô hình dữ liệu điểm vector và kết quả tìm kiếm cho kho lưu trữ vector."""
 
-Tuân thủ nghiêm ngặt:
-    - Mục 11: Vector Point Schema (Identity, Provenance, Retrieval Metadata, Payload text)
-    - Mục 12: Deterministic Point Identity (UUID v5 từ chunk_id)
-    - Mục 24: Query Interface Contract (VectorSearchResult tương thích với Phase 7 aggregation)
-"""
-
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 import uuid
 
-# Namespace UUID cố định cho định danh điểm tất định trong dự án
 LEGAL_VECTOR_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
 def generate_deterministic_point_id(chunk_id: str) -> str:
-    """Sinh point_id tất định định dạng UUID từ chunk_id theo Mục 12."""
     return str(uuid.uuid5(LEGAL_VECTOR_NAMESPACE, str(chunk_id)))
 
 
 @dataclass
 class VectorPoint:
-    """Đại diện một điểm vector hoàn chỉnh trong cơ sở dữ liệu vector."""
-
     point_id: str
     chunk_id: str
     vector: List[float]
@@ -43,7 +32,6 @@ class VectorPoint:
     extra_metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> Dict[str, Any]:
-        """Trích xuất payload metadata lưu trong vector store."""
         return {
             "chunk_id": self.chunk_id,
             "global_article_id": int(self.global_article_id),
@@ -69,7 +57,6 @@ class VectorPoint:
         vector: List[float],
         is_active: bool = True,
     ) -> "VectorPoint":
-        """Khởi tạo VectorPoint từ từ điển chunk và vector BGE-M3."""
         cid = str(chunk_dict["chunk_id"])
         pid = generate_deterministic_point_id(cid)
         return cls(
@@ -94,8 +81,6 @@ class VectorPoint:
 
 @dataclass
 class VectorSearchResult:
-    """Kết quả trả về từ tìm kiếm tương đồng vector."""
-
     point_id: str
     chunk_id: str
     global_article_id: int

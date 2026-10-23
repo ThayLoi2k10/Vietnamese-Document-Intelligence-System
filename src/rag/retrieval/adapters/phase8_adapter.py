@@ -1,17 +1,4 @@
-# src/rag/retrieval/adapters/phase8_adapter.py
-"""Adapter chuyển đổi từ kết quả truy xuất Phase 8 sang domain contract của Phase 9.
-
-Tuân thủ Mục 4: Phase 8 -> Phase 9 Interface:
-    - 4.1 Boundary principle: Phase 9 không phụ thuộc vào FAISS hay Qdrant
-    - 4.4 RetrievalItem schema: Bảo toàn định danh bất biến (chunk_id, global_article_id, law_id)
-    - 4.8 Adapter responsibilities:
-        - validate and normalize Phase 8 output
-        - preserve immutable identities
-        - preserve text and legally relevant metadata
-        - expose retrieval mode explicitly
-        - detect malformed or incomplete input
-        - no silent fabrication of missing fields
-"""
+"""Adapter transforming Phase 8 retrieval outputs into Phase 9 domain models."""
 
 from typing import Any, Callable, Dict, List, Optional
 
@@ -31,7 +18,7 @@ from src.rag.retrieval.interfaces.retriever import Retriever
 
 
 class Phase8RetrievalAdapter(Retriever):
-    """Adapter bao bọc cơ chế tìm kiếm của Phase 8 và chuẩn hóa dữ liệu sang Phase 9."""
+    """Wraps Phase 8 search backends and normalizes data to Phase 9 contracts."""
 
     def __init__(
         self,
@@ -41,16 +28,6 @@ class Phase8RetrievalAdapter(Retriever):
         vector_store: Optional[Any] = None,
         encoder: Optional[Any] = None,
     ) -> None:
-        """Khởi tạo adapter.
-
-        Args:
-            search_fn: Hàm callable nhận (query, top_k) và trả về danh sách
-                       VectorSearchResult hoặc dict payload từ Phase 8.
-            retriever_name: Tên định danh của retriever.
-            component_version: Phiên bản thành phần.
-            vector_store: Đối tượng BaseVectorStore (QdrantVectorStore hoặc FaissVectorStore).
-            encoder: Đối tượng DenseEncoder mã hóa query thành vector.
-        """
         self.search_fn = search_fn
         self.retriever_name = retriever_name
         self.component_version = component_version
@@ -60,22 +37,14 @@ class Phase8RetrievalAdapter(Retriever):
     def normalize_phase8_record(
         self, raw_item: Any, expected_rank: int
     ) -> RetrievalItem:
-        """Chuẩn hóa một bản ghi duy nhất từ Phase 8 thành RetrievalItem.
-
-        Hỗ trợ đối tượng có thuộc tính (dataclass VectorSearchResult) hoặc dict payload.
-        """
         if isinstance(raw_item, dict):
             payload = raw_item.get("payload", {})
             chunk_id = raw_item.get("chunk_id") or payload.get("chunk_id")
-            global_article_id = raw_item.get("global_article_id") or payload.get(
-                "global_article_id"
-            )
+            global_article_id = raw_item.get("global_article_id") or payload.get("global_article_id")
             score = raw_item.get("score")
             rank = raw_item.get("rank", expected_rank)
             law_id = payload.get("law_id") or raw_item.get("law_id")
-            article_identifier = payload.get("article_identifier") or raw_item.get(
-                "article_identifier"
-            )
+            article_identifier = payload.get("article_identifier") or raw_item.get("article_identifier")
             chunk_text = (
                 payload.get("chunk_text")
                 or raw_item.get("chunk_text")
@@ -87,20 +56,12 @@ class Phase8RetrievalAdapter(Retriever):
             extra_metadata = {
                 k: v
                 for k, v in payload.items()
-                if k
-                not in {
-                    "chunk_id",
-                    "global_article_id",
-                    "law_id",
-                    "article_identifier",
-                    "chunk_text",
-                    "chunk_order",
-                    "total_chunks",
-                    "token_count",
+                if k not in {
+                    "chunk_id", "global_article_id", "law_id", "article_identifier",
+                    "chunk_text", "chunk_order", "total_chunks", "token_count",
                 }
             }
         else:
-            # Đối tượng kiểu VectorSearchResult
             chunk_id = getattr(raw_item, "chunk_id", None)
             global_article_id = getattr(raw_item, "global_article_id", None)
             score = getattr(raw_item, "score", None)
@@ -108,55 +69,39 @@ class Phase8RetrievalAdapter(Retriever):
             payload = getattr(raw_item, "payload", {}) or {}
 
             law_id = payload.get("law_id") or getattr(raw_item, "law_id", None)
-            article_identifier = payload.get("article_identifier") or getattr(
-                raw_item, "article_identifier", None
-            )
+            article_identifier = payload.get("article_identifier") or getattr(raw_item, "article_identifier", None)
             chunk_text = (
                 payload.get("chunk_text")
                 or getattr(raw_item, "chunk_text", None)
                 or getattr(raw_item, "text", None)
             )
-            chunk_order = payload.get("chunk_order") or getattr(
-                raw_item, "chunk_order", None
-            )
-            total_chunks = payload.get("total_chunks") or getattr(
-                raw_item, "total_chunks", None
-            )
-            token_count = payload.get("token_count") or getattr(
-                raw_item, "token_count", None
-            )
+            chunk_order = payload.get("chunk_order") or getattr(raw_item, "chunk_order", None)
+            total_chunks = payload.get("total_chunks") or getattr(raw_item, "total_chunks", None)
+            token_count = payload.get("token_count") or getattr(raw_item, "token_count", None)
             extra_metadata = {
                 k: v
                 for k, v in payload.items()
-                if k
-                not in {
-                    "chunk_id",
-                    "global_article_id",
-                    "law_id",
-                    "article_identifier",
-                    "chunk_text",
-                    "chunk_order",
-                    "total_chunks",
-                    "token_count",
+                if k not in {
+                    "chunk_id", "global_article_id", "law_id", "article_identifier",
+                    "chunk_text", "chunk_order", "total_chunks", "token_count",
                 }
             }
 
-        # Kiểm tra tính toàn vẹn (Section 4.8)
         if not law_id or not str(law_id).strip():
             raise MissingRequiredMetadataError(
-                "Bản ghi Phase 8 thiếu 'law_id' bắt buộc.",
+                "Phase 8 record missing required 'law_id'.",
                 details={"raw_item": str(raw_item)},
             )
 
         if chunk_text is None or not str(chunk_text).strip():
             raise InvalidRetrievalResultError(
-                "Bản ghi Phase 8 thiếu nội dung văn bản hợp lệ ('chunk_text').",
+                "Phase 8 record missing valid 'chunk_text'.",
                 details={"raw_item": str(raw_item)},
             )
 
         if rank < 1:
             raise InvalidRetrievalResultError(
-                f"Bản ghi Phase 8 có thứ hạng không hợp lệ: rank={rank}",
+                f"Phase 8 record has invalid rank: {rank}",
                 details={"raw_item": str(raw_item)},
             )
 
@@ -179,20 +124,18 @@ class Phase8RetrievalAdapter(Retriever):
         )
 
     def retrieve(self, query: str, options: RetrievalOptions) -> RetrievalResult:
-        """Thực thi truy xuất và chuẩn hóa kết quả sang RetrievalResult của Phase 9."""
         top_k = options.retrieval_top_k
         if self.search_fn is not None:
             raw_items = self.search_fn(query, top_k)
         elif self.vector_store is not None:
             if self.encoder is None:
                 from src.retrieval.dense.encoder import DenseEncoder
-
                 self.encoder = DenseEncoder()
             q_vec = self.encoder.encode_queries([query], batch_size=1)
             raw_items = self.vector_store.search(q_vec, limit=top_k)
         else:
             raise InvalidRetrievalResultError(
-                "Phase8RetrievalAdapter chưa được cấu hình search_fn hoặc vector_store."
+                "Phase8RetrievalAdapter requires search_fn or vector_store."
             )
 
         items: List[RetrievalItem] = []
@@ -201,7 +144,6 @@ class Phase8RetrievalAdapter(Retriever):
             item.validate(RetrievalMode.CHUNK)
             items.append(item)
 
-        # Tổng hợp cấp Article nếu cần (Section 4.5)
         aggregated: Dict[str, ArticleResult] = {}
         for it in items:
             key = (

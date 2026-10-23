@@ -1,3 +1,5 @@
+"""Package đánh giá độ đo truy xuất văn bản cho hệ thống IR."""
+
 from src.evaluation.retrieval_metrics import (
     aggregate_retrieval_metrics,
     compute_ap_at_k,

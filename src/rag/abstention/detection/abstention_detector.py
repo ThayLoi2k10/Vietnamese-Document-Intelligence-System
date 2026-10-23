@@ -1,13 +1,4 @@
-# src/rag/abstention/detection/abstention_detector.py
-"""Bộ phát hiện và đánh giá từ chối trả lời (AbstentionDetector).
-
-Tuân thủ Mục 15.4: Detection:
-    - Không dựa vào từ khóa chuỗi đơn thuần (ví dụ 'không biết')
-    - Tổng hợp nhiều nguồn tín hiệu:
-        + Tín hiệu từ Retrieval/Context sufficiency
-        + Trạng thái mô hình báo về (model reported confidence & abstention_reason)
-        + Kết quả xác thực trích dẫn (valid vs invalid citations count)
-"""
+"""Abstention detector evaluating multi-signal evidence sufficiency and confidence."""
 
 from typing import Optional
 
@@ -21,7 +12,7 @@ from src.rag.output.schemas.response_schema import ConfidenceLevel, LegalAnswer
 
 
 class AbstentionDetector:
-    """Đánh giá và đưa ra AbstentionDecision tổng hợp cho một lượt RAG."""
+    """Evaluates context, generation, and citation signals to determine abstention decisions."""
 
     def __init__(self, policy_version: str = "abstention-detector-v1.0") -> None:
         self.policy_version = policy_version
@@ -32,10 +23,8 @@ class AbstentionDetector:
         answer: Optional[LegalAnswer],
         citation_validation: Optional[CitationValidationResult],
     ) -> AbstentionDecision:
-        """Phân tích các tín hiệu và sinh quyết định AbstentionDecision."""
         evidence_count = len(context.items)
 
-        # 1. Tín hiệu từ ngữ cảnh: Nếu context rỗng hoàn toàn
         if evidence_count == 0:
             return AbstentionDecision(
                 status=ConfidenceLevel.INSUFFICIENT,
@@ -45,7 +34,6 @@ class AbstentionDetector:
                 policy_version=self.policy_version,
             )
 
-        # 2. Nếu mô hình sinh không trả về LegalAnswer hợp lệ
         if answer is None:
             return AbstentionDecision(
                 status=ConfidenceLevel.INSUFFICIENT,
@@ -55,7 +43,6 @@ class AbstentionDetector:
                 policy_version=self.policy_version,
             )
 
-        # 3. Tín hiệu từ chính mô hình LLM báo về
         if answer.confidence_level == ConfidenceLevel.INSUFFICIENT:
             return AbstentionDecision(
                 status=ConfidenceLevel.INSUFFICIENT,
@@ -76,7 +63,6 @@ class AbstentionDetector:
                 policy_version=self.policy_version,
             )
 
-        # 4. Tín hiệu từ Citation Validation: Nếu tự nhận là FULL nhưng trích dẫn không hợp lệ hoặc rỗng
         if citation_validation is not None:
             if not citation_validation.is_valid:
                 return AbstentionDecision(
@@ -87,7 +73,6 @@ class AbstentionDetector:
                     policy_version=self.policy_version,
                 )
             if len(citation_validation.valid_citations) == 0 and evidence_count > 0:
-                # Không trích dẫn bất kỳ điều luật nào dù context có
                 return AbstentionDecision(
                     status=ConfidenceLevel.PARTIAL,
                     reason_code=AbstentionReasonCode.INVALID_OR_MISSING_CITATIONS,
@@ -96,7 +81,6 @@ class AbstentionDetector:
                     policy_version=self.policy_version,
                 )
 
-        # 5. Đủ căn cứ hoàn toàn
         return AbstentionDecision(
             status=ConfidenceLevel.FULL,
             reason_code=AbstentionReasonCode.SUFFICIENT_EVIDENCE,

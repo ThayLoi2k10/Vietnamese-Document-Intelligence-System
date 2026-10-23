@@ -1,11 +1,4 @@
-# src/rag/reproducibility/manifest.py
-"""Quản lý bản ghi tái lập thực nghiệm (ExperimentManifest) cho Phase 9 RAG.
-
-Tuân thủ Mục 21: Reproducibility:
-    - 21.1 Required metadata
-    - 21.2 Component versioning
-    - 21.3 Reproducibility manifest structure
-"""
+"""Experiment reproducibility manifest generation and persistence."""
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -18,7 +11,7 @@ from src.rag.config.schemas.config_models import ExperimentConfig
 
 @dataclass
 class ExperimentManifest:
-    """Bản khai sinh chi tiết lưu vết toàn bộ phiên bản và tham số của một thực nghiệm."""
+    """Audit record capturing component versions and experiment parameters."""
 
     experiment_id: str
     created_at: str
@@ -39,7 +32,6 @@ class ExperimentManifest:
         return asdict(self)
 
     def save(self, path: Union[str, Path]) -> None:
-        """Ghi manifest ra tệp tin JSON."""
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(
@@ -56,7 +48,6 @@ class ExperimentManifest:
         abstention_policy_version: str = "v1.0",
         notes: Optional[str] = None,
     ) -> "ExperimentManifest":
-        """Khởi tạo ExperimentManifest từ cấu hình ExperimentConfig."""
         now_str = datetime.now(timezone.utc).isoformat()
         return cls(
             experiment_id=config.experiment_id,

@@ -1,4 +1,5 @@
-# src/rag/errors/__init__.py
+"""Public exports for RAG error classes."""
+
 from src.rag.errors.exceptions import (
     ConfigurationValidationError,
     ContextBudgetExceededError,

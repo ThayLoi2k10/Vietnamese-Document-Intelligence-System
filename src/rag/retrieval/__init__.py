@@ -1,4 +1,5 @@
-# src/rag/retrieval/__init__.py
+"""Retrieval interfaces, models, and adapters for RAG pipeline."""
+
 from src.rag.retrieval.adapters import (
     ArticleRetrieverAdapter,
     MockRetriever,

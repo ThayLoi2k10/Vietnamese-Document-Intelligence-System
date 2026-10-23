@@ -1,8 +1,4 @@
-# src/rag/retrieval/adapters/mock_retriever.py
-"""Retriever giả lập (Mock Retriever) phục vụ kiểm thử và kiểm chứng pipeline không cần mô hình thật.
-
-Tuân thủ Mục 8.4: Empty retrieval và Mục 16.4: Dependency injection.
-"""
+"""Mock retriever implementation for deterministic testing."""
 
 from typing import List, Optional
 
@@ -17,7 +13,7 @@ from src.rag.retrieval.interfaces.retriever import Retriever
 
 
 class MockRetriever(Retriever):
-    """MockRetriever có thể cấu hình trước các kết quả trả về."""
+    """Configurable mock retriever returning canned items."""
 
     def __init__(
         self,
@@ -40,24 +36,24 @@ class MockRetriever(Retriever):
         top_k = options.retrieval_top_k
         selected_items = self.canned_items[:top_k]
 
-        # Đảm bảo rank chính xác
         ranked_items: List[RetrievalItem] = []
         for idx, it in enumerate(selected_items, start=1):
-            it_copy = RetrievalItem(
-                chunk_id=it.chunk_id,
-                global_article_id=it.global_article_id,
-                law_id=it.law_id,
-                article_identifier=it.article_identifier,
-                text=it.text,
-                chunk_order=it.chunk_order,
-                total_chunks=it.total_chunks,
-                score=it.score,
-                rank=idx,
-                token_count=it.token_count,
-                parent_reference=it.parent_reference,
-                source_metadata=dict(it.source_metadata),
+            ranked_items.append(
+                RetrievalItem(
+                    chunk_id=it.chunk_id,
+                    global_article_id=it.global_article_id,
+                    law_id=it.law_id,
+                    article_identifier=it.article_identifier,
+                    text=it.text,
+                    chunk_order=it.chunk_order,
+                    total_chunks=it.total_chunks,
+                    score=it.score,
+                    rank=idx,
+                    token_count=it.token_count,
+                    parent_reference=it.parent_reference,
+                    source_metadata=dict(it.source_metadata),
+                )
             )
-            ranked_items.append(it_copy)
 
         metadata = RetrievalMetadata(
             retriever_name=self.retriever_name,

@@ -1,4 +1,5 @@
-# src/rag/reranking/adapters/__init__.py
+"""Reranking adapters exports."""
+
 from src.rag.reranking.adapters.cross_encoder_reranker import (
     CrossEncoderRerankerAdapter,
 )

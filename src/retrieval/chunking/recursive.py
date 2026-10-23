@@ -1,11 +1,4 @@
-# src/retrieval/chunking/recursive.py
-"""Chiến lược phân đoạn đệ quy theo đoạn/câu (Recursive / Paragraph-first Splitting).
-
-Tuân thủ Mục 7.2 của Đặc tả Phase 7:
-    - Phân cấp phân tách tất định: Đoạn văn (\n\n) -> Dòng (\n) -> Câu (. ) -> Từ ( ) -> Token fallback.
-    - Không làm mất ký tự nguồn (preserves source text), đảm bảo độ bao phủ 100%.
-    - Báo cáo số lần fallback khi gặp khối vượt ngưỡng.
-"""
+"""Chiến lược phân đoạn văn bản đệ quy theo đoạn văn, câu và từ."""
 
 from typing import Any, List, Optional, Tuple
 from src.retrieval.chunking.base import BaseChunker
@@ -17,8 +10,6 @@ from src.retrieval.chunking.models import (
 
 
 class RecursiveChunker(BaseChunker):
-    """Bộ phân đoạn đệ quy ưu tiên đoạn văn rồi tới câu và từ."""
-
     SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
 
     def __init__(
@@ -52,11 +43,9 @@ class RecursiveChunker(BaseChunker):
         start_offset: int,
         sep_idx: int = 0,
     ) -> List[Tuple[int, int]]:
-        """Phân tách đệ quy văn bản thành các đơn vị có độ dài token <= target_size."""
         token_len = self.count_tokens(text)
         if token_len <= self.target_size or sep_idx >= len(self.SEPARATORS):
             if token_len > self.target_size:
-                # Token fallback nếu đã qua hết các dấu phân cách
                 self.fallback_count += 1
                 return self._token_fallback_spans(text, start_offset)
             return [(start_offset, start_offset + len(text))]
@@ -74,7 +63,6 @@ class RecursiveChunker(BaseChunker):
 
         for i, part in enumerate(raw_parts):
             if not part:
-                # Ký tự phân tách liên tiếp
                 curr_pos += len(sep) if i < len(raw_parts) - 1 else 0
                 continue
 
@@ -96,7 +84,6 @@ class RecursiveChunker(BaseChunker):
     def _token_fallback_spans(
         self, text: str, start_offset: int
     ) -> List[Tuple[int, int]]:
-        """Cắt lát theo token khi kích thước vượt quá ngân sách."""
         encoding = self.tokenizer(
             text,
             add_special_tokens=False,
@@ -122,7 +109,6 @@ class RecursiveChunker(BaseChunker):
         law_id: str,
         article_identifier: str,
     ) -> List[LegalChunk]:
-        """Phân đoạn đệ quy một điều luật thành các chunk hợp lệ."""
         if not text or not text.strip():
             return []
 
@@ -155,12 +141,10 @@ class RecursiveChunker(BaseChunker):
                 )
             ]
 
-        # 1. Phân tách thành các span nguyên tử
         atomic_spans = self._split_into_atomic_units(text, 0, 0)
         if not atomic_spans:
             return []
 
-        # 2. Gom nhóm các span nguyên tử liên tiếp cho đến target_size
         merged_chunks_info: List[Tuple[int, int, str, int]] = []
         curr_span_start = atomic_spans[0][0]
         curr_span_end = atomic_spans[0][1]
@@ -180,7 +164,6 @@ class RecursiveChunker(BaseChunker):
                 curr_span_start = next_s
                 curr_span_end = next_e
 
-        # Thêm chunk cuối
         last_chunk_content = text[curr_span_start:curr_span_end]
         last_tok_cnt = self.count_tokens(last_chunk_content)
         merged_chunks_info.append(

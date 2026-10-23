@@ -1,12 +1,4 @@
-# src/retrieval/indexing/qdrant_store.py
-"""Kho lưu trữ vector Qdrant Persistent cho Phase 8.
-
-Tuân thủ Mục 8.2 và Mục 9 của Đặc tả Phase 8:
-    - Quản lý vòng đời lưu trữ vector persistent trên đĩa cục bộ (embedded local storage).
-    - Hỗ trợ lưu trữ payload metadata, lọc metadata trước khi tìm kiếm (pre-filtering).
-    - Thao tác thêm/cập nhật tất định (idempotent upsert), xóa và khôi phục.
-    - Sống sót qua các lần khởi động lại tiến trình (survives process restart).
-"""
+"""Kho lưu trữ vector Qdrant cục bộ hỗ trợ pre-filtering và lưu trữ bền vững."""
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Self, Union
@@ -18,8 +10,6 @@ from src.retrieval.indexing.models import VectorPoint, VectorSearchResult
 
 
 class QdrantVectorStore(BaseVectorStore):
-    """Lớp triển khai kho vector bền vững dựa trên Qdrant Client chế độ cục bộ/đĩa."""
-
     def __init__(
         self,
         storage_path: Union[str, Path],
@@ -34,7 +24,6 @@ class QdrantVectorStore(BaseVectorStore):
         self._ensure_collection()
 
     def _ensure_collection(self) -> None:
-        """Đảm bảo collection tồn tại và có các chỉ mục lọc cần thiết."""
         collections = [c.name for c in self.client.get_collections().collections]
         if self.collection_name not in collections:
             self.client.create_collection(
@@ -44,7 +33,6 @@ class QdrantVectorStore(BaseVectorStore):
                     distance=models.Distance.COSINE,
                 ),
             )
-            # Tạo payload index phục vụ lọc nhanh
             self.client.create_payload_index(
                 collection_name=self.collection_name,
                 field_name="law_id",
@@ -67,21 +55,15 @@ class QdrantVectorStore(BaseVectorStore):
             )
 
     def _build_filter(self, filter_dict: Optional[Dict[str, Any]]) -> Optional[models.Filter]:
-        """Xây dựng bộ lọc Qdrant Filter từ từ điển."""
         if not filter_dict:
             return None
-        must_conditions = []
-        for k, v in filter_dict.items():
-            must_conditions.append(
-                models.FieldCondition(
-                    key=k,
-                    match=models.MatchValue(value=v),
-                )
-            )
+        must_conditions = [
+            models.FieldCondition(key=k, match=models.MatchValue(value=v))
+            for k, v in filter_dict.items()
+        ]
         return models.Filter(must=must_conditions)
 
     def upsert(self, points: List[VectorPoint], batch_size: int = 256) -> int:
-        """Thêm mới hoặc cập nhật các điểm vector vào Qdrant."""
         if not points:
             return 0
 
@@ -111,7 +93,6 @@ class QdrantVectorStore(BaseVectorStore):
         limit: int = 100,
         filter_dict: Optional[Dict[str, Any]] = None,
     ) -> List[VectorSearchResult]:
-        """Tìm kiếm tương đồng Cosine kèm lọc metadata (pre-filtering)."""
         q_vec = query_vector.flatten().tolist()
         q_filter = self._build_filter(filter_dict)
 
@@ -140,7 +121,6 @@ class QdrantVectorStore(BaseVectorStore):
         return results
 
     def get(self, point_ids: List[str]) -> List[Optional[VectorPoint]]:
-        """Lấy danh sách điểm theo point_id."""
         if not point_ids:
             return []
         res = self.client.retrieve(
@@ -181,7 +161,6 @@ class QdrantVectorStore(BaseVectorStore):
         return ret
 
     def delete(self, point_ids: List[str]) -> int:
-        """Xóa các điểm khỏi Qdrant."""
         if not point_ids:
             return 0
         self.client.delete(
@@ -192,7 +171,6 @@ class QdrantVectorStore(BaseVectorStore):
         return len(point_ids)
 
     def count(self, filter_dict: Optional[Dict[str, Any]] = None) -> int:
-        """Đếm số điểm vector trong collection."""
         q_filter = self._build_filter(filter_dict)
         res = self.client.count(
             collection_name=self.collection_name,
@@ -202,10 +180,8 @@ class QdrantVectorStore(BaseVectorStore):
         return res.count
 
     def save(self, path: Union[str, Path]) -> None:
-        """Qdrant embedded mode tự động flush và persist xuống storage_path."""
         pass
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> Self:
-        """Khởi tạo lại QdrantVectorStore từ thư mục đã lưu."""
         return cls(storage_path=path)

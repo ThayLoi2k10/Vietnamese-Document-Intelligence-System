@@ -1,13 +1,4 @@
-# src/rag/context/policies/policy_types.py
-"""Định nghĩa các chính sách lắp ghép ngữ cảnh (Context Policies).
-
-Tuân thủ:
-    - Mục 10.3: Selection policy (context_top_k, score_threshold, maximum_context_items)
-    - Mục 10.4: Deduplication (DUPLICATE_CHUNK_ID, DUPLICATE_TEXT_EXACT, OVERLAP, SAME_ARTICLE_LIMIT)
-    - Mục 10.5: Parent/context expansion
-    - Mục 10.6: Ordering (SCORE_DESCENDING, LEGAL_ORDER)
-    - Mục 10.8 & 10.9: Budget failure behavior
-"""
+"""Context policy definitions and strategy enumerations."""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -43,8 +34,6 @@ class BudgetOverflowPolicy(str, Enum):
 
 @dataclass
 class ContextPolicy:
-    """Cấu hình chính sách tuyển chọn và lắp ráp ngữ cảnh."""
-
     context_top_k: int = 5
     score_threshold: Optional[float] = None
     max_context_items: Optional[int] = None

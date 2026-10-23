@@ -1,4 +1,5 @@
-# src/rag/evaluation/metrics/__init__.py
+"""Evaluation metrics models exports."""
+
 from src.rag.evaluation.metrics.models import (
     EvaluationInput,
     EvaluationReport,

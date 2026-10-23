@@ -1,11 +1,4 @@
-# src/retrieval/indexing/faiss_vector_store.py
-"""Chỉ mục tham chiếu chính xác FAISS Flat IP kèm quản lý payload cho Phase 8.
-
-Tuân thủ Mục 8.1 và Mục 10.1 của Đặc tả Phase 8:
-    - Sử dụng faiss.IndexFlatIP làm 'correctness oracle' (chuẩn đối sánh độ chính xác tuyệt đối).
-    - Lưu trữ payload metadata và hỗ trợ lọc metadata chính xác (pre-filtering).
-    - Hỗ trợ lưu trữ persistent và phục hồi hoàn toàn trạng thái.
-"""
+"""Kho lưu trữ vector FAISS IndexFlatIP chính xác kèm quản lý payload metadata."""
 
 import json
 from pathlib import Path
@@ -18,8 +11,6 @@ from src.retrieval.indexing.models import VectorPoint, VectorSearchResult
 
 
 class FaissVectorStore(BaseVectorStore):
-    """Kho lưu trữ vector FAISS Flat IP chính xác kèm quản lý payload trong bộ nhớ."""
-
     def __init__(self, dimension: int = 1024, collection_name: str = "faiss_exact_reference") -> None:
         super().__init__(dimension=dimension, collection_name=collection_name)
         self.index: faiss.IndexFlatIP = faiss.IndexFlatIP(self.dimension)
@@ -28,7 +19,6 @@ class FaissVectorStore(BaseVectorStore):
         self.vectors: Dict[str, np.ndarray] = {}
 
     def _matches_filter(self, payload: Dict[str, Any], filter_dict: Optional[Dict[str, Any]]) -> bool:
-        """Kiểm tra điều kiện pre-filter trên payload metadata."""
         if not filter_dict:
             return True
         for k, v in filter_dict.items():
@@ -37,11 +27,9 @@ class FaissVectorStore(BaseVectorStore):
         return True
 
     def upsert(self, points: List[VectorPoint], batch_size: int = 256) -> int:
-        """Thêm mới hoặc cập nhật các điểm vector vào kho."""
         if not points:
             return 0
 
-        # Cập nhật thông tin điểm trong từ điển
         for p in points:
             pid = p.point_id
             self.payloads[pid] = p.to_payload()
@@ -51,7 +39,6 @@ class FaissVectorStore(BaseVectorStore):
                 vec /= norm
             self.vectors[pid] = vec
 
-        # Tái tạo lại FAISS index để đảm bảo tính đồng bộ hoàn hảo
         self.point_ids = list(self.vectors.keys())
         if self.point_ids:
             all_vecs = np.stack([self.vectors[pid] for pid in self.point_ids], axis=0)
@@ -66,7 +53,6 @@ class FaissVectorStore(BaseVectorStore):
         limit: int = 100,
         filter_dict: Optional[Dict[str, Any]] = None,
     ) -> List[VectorSearchResult]:
-        """Tìm kiếm tương đồng Inner Product chính xác, có hỗ trợ pre-filtering."""
         if self.index.ntotal == 0:
             return []
 
@@ -77,41 +63,30 @@ class FaissVectorStore(BaseVectorStore):
         if norm > 0:
             q_vec /= norm
 
-        # Nếu có điều kiện lọc metadata: quét chính xác các ứng viên thỏa mãn filter (pre-filter)
         if filter_dict:
-            matched_indices = []
-            matched_pids = []
-            for idx, pid in enumerate(self.point_ids):
-                payload = self.payloads.get(pid, {})
-                if self._matches_filter(payload, filter_dict):
-                    matched_indices.append(idx)
-                    matched_pids.append(pid)
-
-            if not matched_indices:
+            matched_pids = [
+                pid for pid in self.point_ids
+                if self._matches_filter(self.payloads.get(pid, {}), filter_dict)
+            ]
+            if not matched_pids:
                 return []
 
             sub_vecs = np.stack([self.vectors[pid] for pid in matched_pids], axis=0)
             sub_scores = np.dot(sub_vecs, q_vec.T).flatten()
-
             top_indices = np.argsort(-sub_scores)[:limit]
-            results: List[VectorSearchResult] = []
-            for rank_i, sub_idx in enumerate(top_indices, start=1):
-                pid = matched_pids[sub_idx]
-                score = float(sub_scores[sub_idx])
-                payload = self.payloads.get(pid, {})
-                results.append(
-                    VectorSearchResult(
-                        point_id=pid,
-                        chunk_id=payload.get("chunk_id", pid),
-                        global_article_id=int(payload.get("global_article_id", -1)),
-                        score=score,
-                        rank=rank_i,
-                        payload=payload,
-                    )
-                )
-            return results
 
-        # Tìm kiếm trực tiếp qua FAISS index
+            return [
+                VectorSearchResult(
+                    point_id=matched_pids[sub_idx],
+                    chunk_id=self.payloads.get(matched_pids[sub_idx], {}).get("chunk_id", matched_pids[sub_idx]),
+                    global_article_id=int(self.payloads.get(matched_pids[sub_idx], {}).get("global_article_id", -1)),
+                    score=float(sub_scores[sub_idx]),
+                    rank=rank_i,
+                    payload=self.payloads.get(matched_pids[sub_idx], {}),
+                )
+                for rank_i, sub_idx in enumerate(top_indices, start=1)
+            ]
+
         eff_k = min(limit, self.index.ntotal)
         scores, indices = self.index.search(q_vec, eff_k)
 
@@ -135,7 +110,6 @@ class FaissVectorStore(BaseVectorStore):
         return results
 
     def get(self, point_ids: List[str]) -> List[Optional[VectorPoint]]:
-        """Truy vấn các điểm vector theo danh sách point_id."""
         ret = []
         for pid in point_ids:
             if pid in self.payloads and pid in self.vectors:
@@ -163,7 +137,6 @@ class FaissVectorStore(BaseVectorStore):
         return ret
 
     def delete(self, point_ids: List[str]) -> int:
-        """Xóa các điểm khỏi kho."""
         deleted = 0
         for pid in point_ids:
             if pid in self.payloads:
@@ -181,17 +154,14 @@ class FaissVectorStore(BaseVectorStore):
         return deleted
 
     def count(self, filter_dict: Optional[Dict[str, Any]] = None) -> int:
-        """Đếm số lượng điểm vector có trong kho."""
         if not filter_dict:
             return len(self.point_ids)
-        cnt = 0
-        for pid in self.point_ids:
-            if self._matches_filter(self.payloads.get(pid, {}), filter_dict):
-                cnt += 1
-        return cnt
+        return sum(
+            1 for pid in self.point_ids
+            if self._matches_filter(self.payloads.get(pid, {}), filter_dict)
+        )
 
     def save(self, path: Union[str, Path]) -> None:
-        """Lưu toàn bộ chỉ mục FAISS, ID và payload metadata xuống đĩa."""
         save_dir = Path(path)
         save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,7 +177,6 @@ class FaissVectorStore(BaseVectorStore):
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> Self:
-        """Nạp chỉ mục và khôi phục toàn vẹn trạng thái từ đĩa."""
         load_dir = Path(path)
         instance = cls()
         instance.index = faiss.read_index(str(load_dir / "index.faiss"))

@@ -1,0 +1,60 @@
+{
+  "experiment_id": "exp_phase13_query_processing",
+  "phase": "Phase 13 — Query Processing",
+  "base_config_id": "exp_phase11_hybrid",
+  "created_at": "2026-09-23",
+  "query_processor": {
+    "version": "v1.0.0",
+    "normalizer": {
+      "enabled": true,
+      "mode": "EXPAND",
+      "custom_acronyms_count": 48
+    },
+    "llm_rewriter": {
+      "enabled": true,
+      "model_name": "Qwen/Qwen2.5-7B-Instruct",
+      "prompt_config_path": "configs/prompts/query_rewriter_v1.json",
+      "temperature": 0.0,
+      "max_new_tokens": 256,
+      "seed": 42
+    },
+    "fallback_policy": {
+      "on_malformed_json": "FALLBACK_NORMALIZED",
+      "on_information_loss": "FALLBACK_NORMALIZED",
+      "on_exception": "FALLBACK_RAW",
+      "key_token_preservation_threshold": 0.50
+    }
+  },
+  "retriever": {
+    "name": "HybridRetriever",
+    "fusion_method": "weighted_rrf",
+    "parameters": {
+      "k_rrf": 5,
+      "w_dense": 0.75,
+      "w_bm25": 0.25,
+      "candidate_depth": 100
+    },
+    "components": {
+      "dense": {
+        "model": "BAAI/bge-m3",
+        "index_path": "data/indices/dense_bge_m3",
+        "dim": 1024
+      },
+      "bm25": {
+        "index_path": "data/indices/bm25_index.pkl",
+        "k1": 1.80,
+        "b": 0.85
+      }
+    }
+  },
+  "benchmarks": {
+    "tuning_dev_path": "data/benchmarks/retrieval_dev_val.json",
+    "frozen_test_path": "data/benchmarks/retrieval_test.json"
+  },
+  "reproducibility": {
+    "seed": 42,
+    "code_version": "phase13-v1.0.0",
+    "target_platform": "Google Colab GPU (T4 / A100 / L4)",
+    "storage_output_dir": "/content/drive/MyDrive/PROJECT2_PHASE13"
+  }
+}

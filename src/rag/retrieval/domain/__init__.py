@@ -1,4 +1,5 @@
-# src/rag/retrieval/domain/__init__.py
+"""Retrieval domain models exports."""
+
 from src.rag.retrieval.domain.models import (
     ArticleResult,
     RetrievalItem,

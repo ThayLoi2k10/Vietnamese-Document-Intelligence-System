@@ -1,4 +1,4 @@
-# src/rag/context/__init__.py
+from src.rag.context.compressor import CompressedPassage, LegalPassageCompressor
 from src.rag.context.context_assembler import ContextAssembler
 from src.rag.context.domain import (
     AssembledContext,
@@ -29,4 +29,6 @@ __all__ = [
     "BudgetOverflowPolicy",
     "ContextPolicy",
     "ContextAssembler",
+    "CompressedPassage",
+    "LegalPassageCompressor",
 ]

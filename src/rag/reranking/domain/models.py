@@ -1,12 +1,6 @@
-# src/rag/reranking/domain/models.py
-"""Mô hình miền cho hệ thống Reranking Phase 9 RAG.
+"""Domain models for reranked candidates and ranking options."""
 
-Tuân thủ Mục 9: Reranker Interface:
-    - 9.4 Reranker contract: Bảo toàn toàn bộ provenance từ retrieval
-    - Phân biệt rõ: retrieval_rank, rerank_rank, retrieval_score, rerank_score
-"""
-
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from src.rag.retrieval.domain.models import RetrievalItem
@@ -14,8 +8,6 @@ from src.rag.retrieval.domain.models import RetrievalItem
 
 @dataclass
 class RankedCandidate:
-    """Ứng viên đã được rerank, giữ nguyên toàn bộ thông tin nguồn gốc từ retrieval."""
-
     retrieval_item: RetrievalItem
     retrieval_rank: int
     rerank_rank: int
@@ -34,8 +26,6 @@ class RankedCandidate:
 
 @dataclass
 class RankedResults:
-    """Tập kết quả đã qua reranking."""
-
     query: str
     candidates: List[RankedCandidate]
     reranker_metadata: Dict[str, Any] = field(default_factory=dict)
@@ -50,8 +40,6 @@ class RankedResults:
 
 @dataclass
 class RerankOptions:
-    """Cấu hình cho lượt reranking."""
-
     reranker_top_k: int = 10
     component_version: Optional[str] = None
     parameters: Dict[str, Any] = field(default_factory=dict)

@@ -31,9 +31,22 @@ DEFAULT_CORPUS_PATH = (
 DEFAULT_BM25_INDEX_PATH = PROJECT_ROOT / "data" / "indices" / "bm25_index.pkl"
 DEFAULT_DENSE_INDEX_DIR = PROJECT_ROOT / "data" / "indices" / "dense_bge_m3"
 
+HF_BASE_URL = "https://huggingface.co/spaces/ThayLoi2k10/vietnamese-legal-rag/resolve/main"
+
+def _ensure_remote_file(path: Path, rel_url: str):
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        url = f"{HF_BASE_URL}/{rel_url}"
+        try:
+            import urllib.request
+            urllib.request.urlretrieve(url, path)
+        except Exception:
+            pass
+
 
 @st.cache_resource(show_spinner="Đang nạp cơ sở dữ liệu luật (59,636 điều)...")
 def load_corpus() -> Dict[int, Dict[str, Any]]:
+    _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet")
     corpus: Dict[int, Dict[str, Any]] = {}
     if DEFAULT_CORPUS_PATH.exists():
         table = pq.read_table(
@@ -64,6 +77,7 @@ def get_laws_catalog(corpus: Dict[int, Dict[str, Any]]) -> Dict[str, List[int]]:
 
 @st.cache_resource(show_spinner="Đang nạp chỉ mục từ khóa BM25...")
 def load_bm25():
+    _ensure_remote_file(DEFAULT_BM25_INDEX_PATH, "data/indices/bm25_index.pkl")
     if DEFAULT_BM25_INDEX_PATH.exists():
         return BM25Retriever.load(DEFAULT_BM25_INDEX_PATH)
     return None

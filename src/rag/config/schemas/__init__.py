@@ -1,4 +1,5 @@
-# src/rag/config/schemas/__init__.py
+"""Configuration models and schema definitions."""
+
 from src.rag.config.schemas.config_models import (
     ContextConfig,
     DatasetConfig,

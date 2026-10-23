@@ -1,10 +1,4 @@
-# src/retrieval/chunking/paragraph.py
-"""Chiến lược phân đoạn theo đoạn văn (Paragraph-based Chunking) cho Phase 7.
-
-Tuân thủ Mục 7.4 của Đặc tả Phase 7:
-    - Bảo toàn ranh giới đoạn văn (\n\n hoặc các khối thụt đầu dòng cấu trúc).
-    - Gom nhóm các đoạn văn ngắn và phân rã các đoạn văn vượt ngưỡng token (fallback).
-"""
+"""Chiến lược phân đoạn văn bản dựa trên ranh giới đoạn văn."""
 
 from typing import Any, List, Optional, Tuple
 from src.retrieval.chunking.base import BaseChunker
@@ -16,8 +10,6 @@ from src.retrieval.chunking.models import (
 
 
 class ParagraphChunker(BaseChunker):
-    """Bộ phân đoạn dựa trên ranh giới đoạn văn."""
-
     def __init__(
         self,
         target_size: int = 512,
@@ -44,14 +36,11 @@ class ParagraphChunker(BaseChunker):
         self.fallback_count: int = 0
 
     def _split_into_paragraphs(self, text: str) -> List[Tuple[int, int]]:
-        """Tách các đoạn văn theo dấu xuống dòng kép (\n\n) hoặc đơn (\n)."""
         if not text:
             return []
 
-        # Ưu tiên tách theo \n\n nếu có
         sep = "\n\n" if "\n\n" in text else "\n"
         raw_parts = text.split(sep)
-
         spans: List[Tuple[int, int]] = []
         curr_pos = 0
 
@@ -74,7 +63,6 @@ class ParagraphChunker(BaseChunker):
         law_id: str,
         article_identifier: str,
     ) -> List[LegalChunk]:
-        """Phân đoạn điều luật theo từng đoạn văn."""
         if not text or not text.strip():
             return []
 
@@ -111,7 +99,6 @@ class ParagraphChunker(BaseChunker):
         if not raw_para_spans:
             raw_para_spans = [(0, len(text))]
 
-        # Chuẩn hóa các đoạn: nếu đoạn nào vượt quá target_size thì fallback cắt token
         atomic_spans: List[Tuple[int, int]] = []
         for p_start, p_end in raw_para_spans:
             p_str = text[p_start:p_end]
@@ -134,7 +121,6 @@ class ParagraphChunker(BaseChunker):
                         (p_start + offsets[i][0], p_start + offsets[end_i - 1][1])
                     )
 
-        # Gom nhóm các đoạn ngắn liên tiếp theo ngân sách target_size
         merged_chunks_info: List[Tuple[int, int, str, int]] = []
         curr_start = atomic_spans[0][0]
         curr_end = atomic_spans[0][1]

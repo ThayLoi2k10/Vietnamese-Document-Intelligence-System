@@ -1,12 +1,4 @@
-# src/retrieval/chunking/structure_aware.py
-"""Chiến lược phân đoạn nhận biết cấu trúc pháp lý (Structure-aware Legal Chunking) cho Phase 7.
-
-Tuân thủ Mục 7.5 và Mục 9.3 của Đặc tả Phase 7:
-    - Phân cấp cấu trúc pháp lý chuẩn Việt Nam: Điều -> Khoản -> Điểm -> Câu -> Token fallback.
-    - Phát hiện tất định ranh giới Khoản (1., 2., Khoản 1,...) và Điểm (a), b), Điểm a,...).
-    - Giữ nguyên vẹn điều luật nếu vừa vặn trong target_size.
-    - Ghi nhận structure_path, parent_clause_id, parent_point_id và fallback_count.
-"""
+"""Chiến lược phân đoạn văn bản dựa trên phân cấp cấu trúc pháp luật Điều - Khoản - Điểm."""
 
 import re
 from typing import Any, List, Optional, Tuple
@@ -17,13 +9,10 @@ from src.retrieval.chunking.models import (
     generate_deterministic_chunk_id,
 )
 
-# Pattern nhận diện Khoản: \n1. hoặc ^1. hoặc Khoản 1. hoặc \t1.
 CLAUSE_PATTERN = re.compile(
     r"(?:(?<=\n)|(?<=\A)|(?<=\t)|(?<=\r))(?:\d+\.|\bKhoản\s+\d+[\.:])\s+",
     re.UNICODE,
 )
-
-# Pattern nhận diện Điểm: a), b), c), đ) hoặc Điểm a)
 POINT_PATTERN = re.compile(
     r"(?:(?<=\n)|(?<=\A)|(?<=\t)|(?<=\r)|(?<=\s))(?:\b[a-zđ]\)|\bĐiểm\s+[a-zđ][\.:\)])\s+",
     re.UNICODE,
@@ -31,8 +20,6 @@ POINT_PATTERN = re.compile(
 
 
 class StructureAwareChunker(BaseChunker):
-    """Bộ phân đoạn thông minh dựa trên phân cấp cấu trúc văn bản pháp luật."""
-
     def __init__(
         self,
         target_size: int = 512,
@@ -70,7 +57,6 @@ class StructureAwareChunker(BaseChunker):
         self.token_fallback_count: int = 0
 
     def _extract_clause_spans(self, text: str) -> List[Tuple[int, int, str]]:
-        """Phát hiện và trích xuất các Khoản trong văn bản điều luật."""
         matches = list(CLAUSE_PATTERN.finditer(text))
         if not matches:
             return []
@@ -82,15 +68,11 @@ class StructureAwareChunker(BaseChunker):
             raw_label = m.group().strip()
             if raw_label.endswith("."):
                 clause_num = raw_label[:-1].strip()
-                if clause_num.isdigit():
-                    clause_label = f"Khoản {clause_num}"
-                else:
-                    clause_label = raw_label
+                clause_label = f"Khoản {clause_num}" if clause_num.isdigit() else raw_label
             else:
                 clause_label = raw_label
             spans.append((c_start, c_end, clause_label))
 
-        # Nếu có phần mở đầu trước Khoản 1 (lời mở đầu điều luật)
         if matches[0].start() > 0:
             preamble_text = text[: matches[0].start()].strip()
             if preamble_text:
@@ -99,7 +81,6 @@ class StructureAwareChunker(BaseChunker):
         return spans
 
     def _extract_point_spans(self, text: str, offset: int) -> List[Tuple[int, int, str]]:
-        """Phát hiện và trích xuất các Điểm trong một Khoản."""
         matches = list(POINT_PATTERN.finditer(text))
         if not matches:
             return []
@@ -109,11 +90,7 @@ class StructureAwareChunker(BaseChunker):
             p_start = m.start()
             p_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
             raw_p = m.group().strip()
-            if raw_p.endswith(")"):
-                pt_char = raw_p[:-1].strip()
-                point_label = f"Điểm {pt_char}"
-            else:
-                point_label = raw_p
+            point_label = f"Điểm {raw_p[:-1].strip()}" if raw_p.endswith(")") else raw_p
             spans.append((offset + p_start, offset + p_end, point_label))
 
         if matches[0].start() > 0:
@@ -124,7 +101,6 @@ class StructureAwareChunker(BaseChunker):
         return spans
 
     def _token_fallback(self, text: str, abs_start: int) -> List[Tuple[int, int, str, str]]:
-        """Token fallback cắt lát theo token cho đơn vị vẫn vượt ngưỡng."""
         self.token_fallback_count += 1
         encoding = self.tokenizer(
             text,
@@ -151,13 +127,11 @@ class StructureAwareChunker(BaseChunker):
         law_id: str,
         article_identifier: str,
     ) -> List[LegalChunk]:
-        """Phân đoạn điều luật theo phân cấp cấu trúc pháp lý."""
         if not text or not text.strip():
             return []
 
         total_tokens = self.count_tokens(text)
 
-        # 1. Điều luật vừa vặn target_size -> 1 chunk duy nhất
         if total_tokens <= self.target_size:
             c_hash = compute_content_hash(text)
             cid = generate_deterministic_chunk_id(
@@ -187,9 +161,8 @@ class StructureAwareChunker(BaseChunker):
                 )
             ]
 
-        # 2. Thử trích xuất các Khoản
         clause_spans = self._extract_clause_spans(text)
-        units: List[Tuple[int, int, str, str]] = []  # (start, end, path, unit_type)
+        units: List[Tuple[int, int, str, str]] = []
 
         if clause_spans:
             self.clause_detected_articles += 1
@@ -198,10 +171,8 @@ class StructureAwareChunker(BaseChunker):
                 clause_tokens = self.count_tokens(clause_text)
 
                 if clause_tokens <= self.target_size or self.clause_first_only:
-                    # Khoản vừa vặn hoặc ở chế độ clause-first
                     units.append((c_start, c_end, f"Điều > {c_label}", "clause"))
                 else:
-                    # Khoản vượt ngưỡng -> thử trích xuất Điểm
                     point_spans = self._extract_point_spans(clause_text, c_start)
                     if point_spans:
                         self.point_detected_articles += 1
@@ -219,18 +190,12 @@ class StructureAwareChunker(BaseChunker):
                                     )
                                 )
                             else:
-                                # Điểm vượt ngưỡng -> token fallback
-                                units.extend(
-                                    self._token_fallback(point_text, p_start)
-                                )
+                                units.extend(self._token_fallback(point_text, p_start))
                     else:
-                        # Không có Điểm -> token fallback
                         units.extend(self._token_fallback(clause_text, c_start))
         else:
-            # Không phát hiện cấu trúc Khoản -> token fallback
             units.extend(self._token_fallback(text, 0))
 
-        # 3. Gom nhóm các đơn vị nhỏ liền kề nếu không vượt target_size (tránh phân mảnh quá mức)
         merged_units: List[Tuple[int, int, str, str, str, int]] = []
         if units:
             curr_s, curr_e, curr_path, curr_type = units[0]

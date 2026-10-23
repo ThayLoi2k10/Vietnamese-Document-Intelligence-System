@@ -1,4 +1,5 @@
-# src/rag/output/schemas/__init__.py
+"""Output schemas exports."""
+
 from src.rag.output.schemas.response_schema import (
     Citation,
     ConfidenceLevel,

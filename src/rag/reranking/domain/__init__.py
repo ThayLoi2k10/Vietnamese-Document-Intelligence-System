@@ -1,4 +1,5 @@
-# src/rag/reranking/domain/__init__.py
+"""Reranking domain models exports."""
+
 from src.rag.reranking.domain.models import (
     RankedCandidate,
     RankedResults,

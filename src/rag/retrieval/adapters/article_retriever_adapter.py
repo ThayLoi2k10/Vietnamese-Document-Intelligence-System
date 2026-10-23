@@ -1,10 +1,4 @@
-# src/rag/retrieval/adapters/article_retriever_adapter.py
-"""Adapter cho các Retriever cấp độ Article (Phase 5/6 BaseRetriever) sang domain contract Phase 9.
-
-Tuân thủ Mục 2.3:
-    - Phase 9 giao tiếp qua abstraction có thể tiêu thụ chunk-level hoặc article-level retrieval.
-    - Khi article-level retrieval được sử dụng, Phase 9 không ép buộc chunk architecture.
-"""
+"""Adapter for article-level retrievers into Phase 9 domain contracts."""
 
 from typing import Any, Callable, Dict, List, Optional
 
@@ -23,7 +17,7 @@ from src.rag.retrieval.interfaces.retriever import Retriever
 
 
 class ArticleRetrieverAdapter(Retriever):
-    """Adapter tích hợp các retriever cấp độ Article (Phase 5/6) vào Phase 9."""
+    """Adapts article-level retrieval backends to the unified Phase 9 interface."""
 
     def __init__(
         self,
@@ -32,15 +26,6 @@ class ArticleRetrieverAdapter(Retriever):
         retriever_name: str = "article_retriever",
         component_version: str = "v1.0.0",
     ) -> None:
-        """Khởi tạo adapter.
-
-        Args:
-            search_fn: Hàm nhận (query, top_k) và trả về danh sách RetrievalResult (từ src/retrieval/base.py)
-                       chứa article_id, score, rank.
-            article_lookup: Bảng tra cứu thông tin chi tiết của article (law_id, text, article_identifier, v.v.).
-            retriever_name: Tên retriever.
-            component_version: Phiên bản thành phần.
-        """
         self.search_fn = search_fn
         self.article_lookup = article_lookup or {}
         self.retriever_name = retriever_name
@@ -49,7 +34,7 @@ class ArticleRetrieverAdapter(Retriever):
     def retrieve(self, query: str, options: RetrievalOptions) -> RetrievalResult:
         if self.search_fn is None:
             raise InvalidRetrievalResultError(
-                "ArticleRetrieverAdapter chưa được cấu hình search_fn."
+                "ArticleRetrieverAdapter requires a configured search_fn."
             )
 
         top_k = options.retrieval_top_k
@@ -70,7 +55,7 @@ class ArticleRetrieverAdapter(Retriever):
 
             if art_id is None:
                 raise MissingRequiredMetadataError(
-                    "Kết quả truy xuất thiếu article_id.",
+                    "Retrieval output missing required article_id.",
                     details={"raw_item": str(r)},
                 )
 

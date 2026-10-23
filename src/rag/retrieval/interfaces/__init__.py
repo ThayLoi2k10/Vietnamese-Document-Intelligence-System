@@ -1,4 +1,5 @@
-# src/rag/retrieval/interfaces/__init__.py
+"""Retriever interface exports."""
+
 from src.rag.retrieval.interfaces.retriever import Retriever
 
 __all__ = ["Retriever"]

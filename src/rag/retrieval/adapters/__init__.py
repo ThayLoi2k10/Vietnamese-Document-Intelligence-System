@@ -1,4 +1,5 @@
-# src/rag/retrieval/adapters/__init__.py
+"""Retrieval adapter implementations."""
+
 from src.rag.retrieval.adapters.article_retriever_adapter import (
     ArticleRetrieverAdapter,
 )

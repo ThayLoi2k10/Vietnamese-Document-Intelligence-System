@@ -1,0 +1,72 @@
+{
+  "experiment_id": "exp_phase10_llm_only",
+  "is_tuning_experiment": false,
+  "base_config_id": "exp_phase9_baseline",
+  "changed_parameters": {
+    "retriever": "DISABLED",
+    "context": "ZERO_CONTEXT",
+    "prompting.prompt_version": "prompt_llm_only_v1"
+  },
+  "dataset": {
+    "split_role": "DEVELOPMENT",
+    "dataset_name": "vietnamese_legal_retrieval",
+    "split_path": "data/benchmarks/phase10_comparison_dataset.json",
+    "sample_limit": 1401
+  },
+  "retriever": {
+    "retriever_name": "disabled_llm_only",
+    "retrieval_top_k": 1,
+    "retrieval_mode": "DISABLED",
+    "component_version": "disabled",
+    "parameters": {}
+  },
+  "reranker": {
+    "enabled": false,
+    "model_name": null,
+    "reranker_top_k": 1,
+    "component_version": "disabled",
+    "parameters": {}
+  },
+  "context": {
+    "context_top_k": 1,
+    "score_threshold": null,
+    "max_context_items": 0,
+    "deduplication_policy": "DISABLED",
+    "deduplication_options": {},
+    "expansion_policy": "DISABLED",
+    "expansion_options": {},
+    "ordering_strategy": "SCORE_DESCENDING",
+    "max_context_tokens": 4096,
+    "budget_overflow_policy": "DROP_LOWEST_PRIORITY_ITEMS",
+    "component_version": "disabled-zero-context"
+  },
+  "prompting": {
+    "prompt_version": "prompt_llm_only_v1",
+    "template_name": "standard_legal_qa_llm_only_v1",
+    "instruction_policy_version": "v1.0"
+  },
+  "generation": {
+    "llm_model": "Qwen/Qwen2.5-7B-Instruct",
+    "thinking_mode": false,
+    "max_output_tokens": 1024,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 42,
+    "component_version": "generator-v1.0",
+    "extra_parameters": {
+      "repetition_penalty": 1.1
+    }
+  },
+  "evaluation": {
+    "evaluator_names": [
+      "abstention_correctness"
+    ],
+    "evaluation_cutoff": 10,
+    "component_version": "eval-v1.0"
+  },
+  "reproducibility": {
+    "seed": 42,
+    "code_version": "phase10-v0.10.0",
+    "notes": "Official Phase 10 LLM-only baseline (System A) without retrieval context."
+  }
+}

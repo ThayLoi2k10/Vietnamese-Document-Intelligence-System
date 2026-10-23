@@ -1,4 +1,5 @@
-# src/rag/context/domain/__init__.py
+"""Context domain models and token counters."""
+
 from src.rag.context.domain.models import AssembledContext, ContextItem
 from src.rag.context.domain.token_counter import (
     CharacterTokenCounter,
