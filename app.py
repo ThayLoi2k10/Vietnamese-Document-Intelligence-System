@@ -33,34 +33,50 @@ DEFAULT_DENSE_INDEX_DIR = PROJECT_ROOT / "data" / "indices" / "dense_bge_m3"
 
 HF_BASE_URL = "https://huggingface.co/spaces/ThayLoi2k10/vietnamese-legal-rag/resolve/main"
 
-def _ensure_remote_file(path: Path, rel_url: str):
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        url = f"{HF_BASE_URL}/{rel_url}"
+def _ensure_remote_file(path: Path, rel_url: str, min_size: int = 1_000_000):
+    if path.exists() and path.stat().st_size >= min_size:
+        return
+    if path.exists():
         try:
-            import urllib.request
-            urllib.request.urlretrieve(url, path)
+            path.unlink(missing_ok=True)
         except Exception:
             pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    url = f"{HF_BASE_URL}/{rel_url}"
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        import urllib.request
+        with st.spinner(f"Đang đồng bộ dữ liệu ({path.name})... Quá trình này chỉ mất 15-30 giây."):
+            urllib.request.urlretrieve(url, tmp_path)
+            if tmp_path.exists() and tmp_path.stat().st_size >= min_size:
+                tmp_path.replace(path)
+    except Exception as e:
+        st.error(f"Lỗi khi tải file {path.name}: {e}")
 
 
 @st.cache_resource(show_spinner="Đang nạp cơ sở dữ liệu luật (59,636 điều)...")
 def load_corpus() -> Dict[int, Dict[str, Any]]:
-    _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet")
+    _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet", min_size=50_000_000)
     corpus: Dict[int, Dict[str, Any]] = {}
     if DEFAULT_CORPUS_PATH.exists():
-        table = pq.read_table(
-            DEFAULT_CORPUS_PATH,
-            columns=["global_article_id", "law_id", "aid", "text"],
-        )
-        df = table.to_pandas()
-        for _, row in df.iterrows():
-            gid = int(row["global_article_id"])
-            corpus[gid] = {
-                "law_id": str(row["law_id"]),
-                "aid": str(row["aid"]),
-                "text": str(row["text"]),
-            }
+        try:
+            table = pq.read_table(
+                DEFAULT_CORPUS_PATH,
+                columns=["global_article_id", "law_id", "aid", "text"],
+            )
+            df = table.to_pandas()
+            for _, row in df.iterrows():
+                gid = int(row["global_article_id"])
+                corpus[gid] = {
+                    "law_id": str(row["law_id"]),
+                    "aid": str(row["aid"]),
+                    "text": str(row["text"]),
+                }
+        except Exception:
+            try:
+                DEFAULT_CORPUS_PATH.unlink(missing_ok=True)
+            except Exception:
+                pass
     return corpus
 
 
@@ -77,7 +93,7 @@ def get_laws_catalog(corpus: Dict[int, Dict[str, Any]]) -> Dict[str, List[int]]:
 
 @st.cache_resource(show_spinner="Đang nạp chỉ mục từ khóa BM25...")
 def load_bm25():
-    _ensure_remote_file(DEFAULT_BM25_INDEX_PATH, "data/indices/bm25_index.pkl")
+    _ensure_remote_file(DEFAULT_BM25_INDEX_PATH, "data/indices/bm25_index.pkl", min_size=20_000_000)
     if DEFAULT_BM25_INDEX_PATH.exists():
         return BM25Retriever.load(DEFAULT_BM25_INDEX_PATH)
     return None
