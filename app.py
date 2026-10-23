@@ -357,16 +357,13 @@ def fetch_groq_models(api_key: str) -> List[str]:
 def fetch_gemini_models(api_key: str) -> list[str]:
     default_models = [
         "gemini-2.0-flash",
-        "gemini-2.5-flash",
-        "gemini-flash-latest",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
     ]
     if not api_key:
         return default_models
     try:
-        clean_key = api_key.strip()
+        clean_key = api_key.strip().strip("'\"").strip()
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_key}"
         resp = requests.get(url, timeout=6)
         if resp.status_code == 200:
@@ -381,15 +378,13 @@ def fetch_gemini_models(api_key: str) -> list[str]:
             if valid_models:
                 def rank_key(m_name: str):
                     m_lower = m_name.lower()
-                    if "2.0-flash" in m_lower and "lite" not in m_lower:
+                    if "2.0-flash" in m_lower:
                         return 0
-                    if "2.5-flash" in m_lower:
+                    if "1.5-flash" in m_lower:
                         return 1
-                    if "flash-latest" in m_lower:
+                    if "1.5-pro" in m_lower:
                         return 2
-                    if "flash" in m_lower:
-                        return 3
-                    return 4
+                    return 3
                 valid_models.sort(key=lambda x: (rank_key(x), x))
                 return valid_models
     except Exception:
@@ -448,7 +443,11 @@ def stream_groq(
 def stream_gemini(
     prompt: str, system_prompt: str, api_key: str, model: str = "gemini-2.0-flash"
 ) -> Generator[str, None, None]:
-    clean_key = api_key.strip()
+    clean_key = api_key.strip().strip("'\"").strip()
+    if not clean_key:
+        yield "\n[Lỗi kết nối Gemini API]: API Key bị trống. Vui lòng nhập Gemini API Key ở menu cài đặt."
+        return
+
     full_prompt = f"{system_prompt}\n\n---\n{prompt}"
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}],
@@ -456,9 +455,9 @@ def stream_gemini(
     }
     headers = {"Content-Type": "application/json"}
 
-    # Build prioritized candidate models
+    # Build prioritized candidate models (only real Google AI Studio models)
     models_to_try = [model]
-    for fallback in ["gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash-latest"]:
+    for fallback in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
         if fallback not in models_to_try:
             models_to_try.append(fallback)
 
@@ -674,9 +673,9 @@ def main():
         backend_choice = st.selectbox(
             "Backend trả lời:",
             [
-                "Google Gemini API (Khuyên dùng)",
+                "Groq Cloud API (Llama 3.3 70B - Khuyên dùng)",
+                "Google Gemini API",
                 "Chỉ tra cứu điều luật (Không dùng LLM)",
-                "Groq Cloud API (Llama 3.3 70B)",
                 "Google Colab GPU Server (Qwen-7B)",
                 "Ollama Local (Offline)",
             ],
@@ -693,14 +692,14 @@ def main():
             )
 
         groq_api_key = ""
-        groq_model = "llama-3.1-8b-instant"
+        groq_model = "llama-3.3-70b-versatile"
         if "Groq" in backend_choice:
             default_key = get_secret_or_env("GROQ_API_KEY", "")
             groq_api_key = st.text_input(
                 "Groq API Key:",
                 value=default_key,
                 type="password",
-                help="Lấy API Key tại console.groq.com",
+                help="Lấy API Key miễn phí tại console.groq.com",
             )
             available_models = fetch_groq_models(groq_api_key)
             default_idx = 0
@@ -719,9 +718,26 @@ def main():
             default_idx = 0
             if "gemini-2.0-flash" in available_gemini:
                 default_idx = available_gemini.index("gemini-2.0-flash")
-            elif "gemini-flash-latest" in available_gemini:
-                default_idx = available_gemini.index("gemini-flash-latest")
+            elif "gemini-1.5-flash" in available_gemini:
+                default_idx = available_gemini.index("gemini-1.5-flash")
             gemini_model = st.selectbox("Model Gemini:", available_gemini, index=default_idx)
+            if gemini_api_key:
+                if st.button("🧪 Thử kết nối Gemini Key", use_container_width=True):
+                    clean_test_key = gemini_api_key.strip().strip("'\"").strip()
+                    test_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_test_key}"
+                    try:
+                        t_res = requests.get(test_url, timeout=5)
+                        if t_res.status_code == 200:
+                            t_models = [
+                                m.get("name", "").replace("models/", "")
+                                for m in t_res.json().get("models", [])
+                                if "generateContent" in m.get("supportedGenerationMethods", [])
+                            ]
+                            st.success(f"✅ Key hợp lệ! Tìm thấy {len(t_models)} models: {', '.join(t_models[:3])}")
+                        else:
+                            st.error(f"❌ Google từ chối (HTTP {t_res.status_code}): {t_res.text}")
+                    except Exception as e:
+                        st.error(f"❌ Lỗi mạng: {e}")
 
         ollama_model = "qwen2.5:1.5b"
         if "Ollama" in backend_choice:
