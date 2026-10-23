@@ -56,12 +56,16 @@ data/*
 artifacts/*
 results/*
 
-# Explicitly whitelist the lightweight pre-built serving index (< 50MB)
-!data/processed/
-!data/processed/legal_retrieval/
-!data/processed/legal_retrieval/corpus_articles_preprocessed.parquet
+# Explicitly whitelist ONLY the lightweight pre-built serving index & corpus (< 50MB)
 !data/indices/
+data/indices/*
 !data/indices/bm25_index.pkl
+
+!data/processed/
+data/processed/*
+!data/processed/legal_retrieval/
+data/processed/legal_retrieval/*
+!data/processed/legal_retrieval/corpus_articles_preprocessed.parquet
 
 # Log & temporary files
 *.log

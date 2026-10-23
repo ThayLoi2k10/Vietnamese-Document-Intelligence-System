@@ -372,7 +372,7 @@ class LegalRAGService:
             key = api_key or os.environ.get("GEMINI_API_KEY")
             if not key:
                 raise ValueError("GEMINI_API_KEY is required for backend='gemini'")
-            m_name = model or "gemini-1.5-flash"
+            m_name = model or "gemini-2.0-flash"
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={key.strip()}"
             full_prompt = f"{system_prompt}\n\n---\n{user_prompt}"
             payload = {

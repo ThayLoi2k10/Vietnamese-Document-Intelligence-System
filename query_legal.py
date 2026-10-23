@@ -219,7 +219,7 @@ def call_gemini(
     prompt: str,
     system_prompt: str,
     api_key: str,
-    model: str = "gemini-1.5-flash",
+    model: str = "gemini-2.0-flash",
     stream_to_stdout: bool = True,
 ) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key.strip()}"
@@ -600,7 +600,7 @@ class LegalAssistant:
 
         elif effective_backend == "gemini":
             key = api_key or os.environ.get("GEMINI_API_KEY")
-            active_model = model or "gemini-1.5-flash"
+            active_model = model or "gemini-2.0-flash"
             if not key:
                 if as_json:
                     err_payload = {"status": "ERROR", "error": "GEMINI_API_KEY is required"}

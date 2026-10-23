@@ -353,6 +353,50 @@ def fetch_groq_models(api_key: str) -> List[str]:
     return verified_models
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_gemini_models(api_key: str) -> list[str]:
+    default_models = [
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro-latest",
+    ]
+    if not api_key:
+        return default_models
+    try:
+        clean_key = api_key.strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_key}"
+        resp = requests.get(url, timeout=6)
+        if resp.status_code == 200:
+            data = resp.json().get("models", [])
+            valid_models = []
+            for m in data:
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" in methods:
+                    name = m.get("name", "").replace("models/", "").strip()
+                    if name and not any(kw in name.lower() for kw in ["embed", "aqa", "imagen"]):
+                        valid_models.append(name)
+            if valid_models:
+                def rank_key(m_name: str):
+                    m_lower = m_name.lower()
+                    if "2.0-flash" in m_lower and "lite" not in m_lower:
+                        return 0
+                    if "2.5-flash" in m_lower:
+                        return 1
+                    if "flash-latest" in m_lower:
+                        return 2
+                    if "flash" in m_lower:
+                        return 3
+                    return 4
+                valid_models.sort(key=lambda x: (rank_key(x), x))
+                return valid_models
+    except Exception:
+        pass
+    return default_models
+
+
 def stream_groq(
     prompt: str, system_prompt: str, api_key: str, model: str
 ) -> Generator[str, None, None]:
@@ -402,7 +446,7 @@ def stream_groq(
 
 
 def stream_gemini(
-    prompt: str, system_prompt: str, api_key: str, model: str = "gemini-1.5-flash"
+    prompt: str, system_prompt: str, api_key: str, model: str = "gemini-2.0-flash"
 ) -> Generator[str, None, None]:
     clean_key = api_key.strip()
     full_prompt = f"{system_prompt}\n\n---\n{prompt}"
@@ -412,46 +456,73 @@ def stream_gemini(
     }
     headers = {"Content-Type": "application/json"}
 
-    candidate_urls = [
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={clean_key}",
-        f"https://generativelanguage.googleapis.com/v1/models/{model}:streamGenerateContent?alt=sse&key={clean_key}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}-latest:streamGenerateContent?alt=sse&key={clean_key}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key={clean_key}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={clean_key}",
-        f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={clean_key}",
-    ]
+    # Build prioritized candidate models
+    models_to_try = [model]
+    for fallback in ["gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash-latest"]:
+        if fallback not in models_to_try:
+            models_to_try.append(fallback)
 
     last_error = ""
-    for url in candidate_urls:
-        try:
-            is_stream = ":streamGenerateContent" in url
-            response = requests.post(url, json=payload, headers=headers, stream=is_stream, timeout=45)
-            if response.status_code == 200:
-                if is_stream:
-                    response.encoding = "utf-8"
-                    for raw_line in response.iter_lines():
-                        if not raw_line:
-                            continue
-                        line_str = raw_line.decode("utf-8", errors="replace").strip()
-                        if line_str.startswith("data:"):
-                            line_str = line_str[5:].strip()
-                        if '"text":' in line_str:
-                            import json
-                            try:
-                                chunk_json = json.loads(line_str)
-                                text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
-                                yield text
-                            except Exception:
-                                pass
-                    return
+    for target_model in models_to_try:
+        endpoints = [
+            (f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:streamGenerateContent?alt=sse&key={clean_key}", True),
+            (f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={clean_key}", False),
+        ]
+        model_failed = False
+        for url, is_stream in endpoints:
+            try:
+                response = requests.post(url, json=payload, headers=headers, stream=is_stream, timeout=45)
+                if response.status_code == 200:
+                    if is_stream:
+                        response.encoding = "utf-8"
+                        has_text = False
+                        for raw_line in response.iter_lines():
+                            if not raw_line:
+                                continue
+                            line_str = raw_line.decode("utf-8", errors="replace").strip()
+                            if line_str.startswith("data:"):
+                                line_str = line_str[5:].strip()
+                            if '"text":' in line_str:
+                                import json
+                                try:
+                                    chunk_json = json.loads(line_str)
+                                    candidates = chunk_json.get("candidates", [])
+                                    if candidates:
+                                        parts = candidates[0].get("content", {}).get("parts", [])
+                                        for part in parts:
+                                            piece = part.get("text", "")
+                                            if piece:
+                                                has_text = True
+                                                yield piece
+                                except Exception:
+                                    pass
+                        if has_text:
+                            return
+                    else:
+                        data = response.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            for part in parts:
+                                piece = part.get("text", "")
+                                if piece:
+                                    yield piece
+                            return
                 else:
-                    data = response.json()
-                    yield data["candidates"][0]["content"]["parts"][0]["text"]
-                    return
-            else:
-                last_error = f"HTTP {response.status_code}: {response.text}"
-        except Exception as e:
-            last_error = str(e)
+                    err_msg = response.text
+                    try:
+                        err_json = response.json()
+                        err_msg = err_json.get("error", {}).get("message", response.text)
+                    except Exception:
+                        pass
+                    last_error = f"HTTP {response.status_code} ({target_model}): {err_msg}"
+                    if response.status_code == 404:
+                        model_failed = True
+                        break
+            except Exception as e:
+                last_error = str(e)
+        if model_failed:
+            continue
 
     yield f"\n[Lỗi kết nối Gemini API]: {last_error}\n"
 
@@ -640,11 +711,17 @@ def main():
             groq_model = st.selectbox("Model Groq:", available_models, index=default_idx)
 
         gemini_api_key = ""
-        gemini_model = "gemini-1.5-flash"
+        gemini_model = "gemini-2.0-flash"
         if "Gemini" in backend_choice:
             default_gemini_key = get_secret_or_env("GEMINI_API_KEY", "")
             gemini_api_key = st.text_input("Gemini API Key:", value=default_gemini_key, type="password")
-            gemini_model = st.selectbox("Model Gemini:", ["gemini-1.5-flash", "gemini-1.5-pro"], index=0)
+            available_gemini = fetch_gemini_models(gemini_api_key)
+            default_idx = 0
+            if "gemini-2.0-flash" in available_gemini:
+                default_idx = available_gemini.index("gemini-2.0-flash")
+            elif "gemini-flash-latest" in available_gemini:
+                default_idx = available_gemini.index("gemini-flash-latest")
+            gemini_model = st.selectbox("Model Gemini:", available_gemini, index=default_idx)
 
         ollama_model = "qwen2.5:1.5b"
         if "Ollama" in backend_choice:
