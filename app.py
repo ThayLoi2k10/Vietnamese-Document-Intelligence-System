@@ -36,7 +36,7 @@ HF_BASE_URL = "https://huggingface.co/spaces/ThayLoi2k10/vietnamese-legal-rag/re
 def _ensure_remote_file(path: Path, rel_url: str, min_size: int = 1_000_000):
     if path.exists() and path.stat().st_size >= min_size:
         return
-    if path.exists():
+    if path.exists() and path.stat().st_size == 0:
         try:
             path.unlink(missing_ok=True)
         except Exception:
@@ -56,7 +56,7 @@ def _ensure_remote_file(path: Path, rel_url: str, min_size: int = 1_000_000):
 
 @st.cache_resource(show_spinner="Đang nạp cơ sở dữ liệu luật (59,636 điều)...")
 def load_corpus() -> Dict[int, Dict[str, Any]]:
-    _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet", min_size=50_000_000)
+    _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet", min_size=10_000_000)
     corpus: Dict[int, Dict[str, Any]] = {}
     if DEFAULT_CORPUS_PATH.exists():
         try:
