@@ -376,29 +376,56 @@ def stream_groq(
 def stream_gemini(
     prompt: str, system_prompt: str, api_key: str, model: str = "gemini-1.5-flash"
 ) -> Generator[str, None, None]:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?key={api_key.strip()}"
+    clean_key = api_key.strip()
     full_prompt = f"{system_prompt}\n\n---\n{prompt}"
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
     }
     headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
-        if response.status_code != 200:
-            yield f"\n[Lỗi kết nối Gemini API] HTTP {response.status_code}: {response.text}"
-            return
-        response.encoding = "utf-8"
-        for line in response.iter_lines():
-            if not line:
-                continue
-            line_str = line.decode("utf-8", errors="replace").strip()
-            if line_str.startswith('"text":'):
-                text = line_str.split('"text":')[-1].strip().strip('"').replace("\\n", "\n")
-                if text:
-                    yield text
-    except Exception as err:
-        yield f"\n[Lỗi kết nối Gemini]: {err}"
+
+    candidate_urls = [
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={clean_key}",
+        f"https://generativelanguage.googleapis.com/v1/models/{model}:streamGenerateContent?alt=sse&key={clean_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}-latest:streamGenerateContent?alt=sse&key={clean_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key={clean_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={clean_key}",
+        f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={clean_key}",
+    ]
+
+    last_error = ""
+    for url in candidate_urls:
+        try:
+            is_stream = ":streamGenerateContent" in url
+            response = requests.post(url, json=payload, headers=headers, stream=is_stream, timeout=45)
+            if response.status_code == 200:
+                if is_stream:
+                    response.encoding = "utf-8"
+                    for raw_line in response.iter_lines():
+                        if not raw_line:
+                            continue
+                        line_str = raw_line.decode("utf-8", errors="replace").strip()
+                        if line_str.startswith("data:"):
+                            line_str = line_str[5:].strip()
+                        if '"text":' in line_str:
+                            import json
+                            try:
+                                chunk_json = json.loads(line_str)
+                                text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
+                                yield text
+                            except Exception:
+                                pass
+                    return
+                else:
+                    data = response.json()
+                    yield data["candidates"][0]["content"]["parts"][0]["text"]
+                    return
+            else:
+                last_error = f"HTTP {response.status_code}: {response.text}"
+        except Exception as e:
+            last_error = str(e)
+
+    yield f"\n[Lỗi kết nối Gemini API]: {last_error}\n"
 
 
 def stream_colab(
