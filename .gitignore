@@ -56,10 +56,22 @@ data/*
 artifacts/*
 results/*
 
-# Explicitly whitelist ONLY the lightweight pre-built serving index & corpus (< 50MB)
+# Explicitly whitelist ONLY the lightweight pre-built serving index, LoRA reranker weights & corpus (< 50MB)
 !data/indices/
 data/indices/*
 !data/indices/bm25_index.pkl
+!data/indices/hybrid_config.json
+!data/indices/reranker_finetuned/
+data/indices/reranker_finetuned/*
+!data/indices/reranker_finetuned/lora_reranker_weights.pt
+
+!results/
+results/*
+!results/benchmarks/
+results/benchmarks/*
+!results/benchmarks/reranker_training_report.json
+!results/benchmarks/finetuned_reranker_test_metrics.json
+!results/benchmarks/end_to_end_qa_accuracy_report.json
 
 !data/processed/
 data/processed/*

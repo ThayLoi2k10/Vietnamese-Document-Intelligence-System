@@ -7,15 +7,28 @@ try:
 except ImportError:
     pass
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+def _load_env_file() -> None:
+    """Nạp biến môi trường từ .env (không phụ thuộc python-dotenv)."""
+    env_path = __import__("pathlib").Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    import os as _os
+    for raw in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        key, val = key.strip(), val.strip().strip("'\"")
+        if key and val and not _os.environ.get(key):
+            _os.environ[key] = val
+
+
+_load_env_file()
 
 
 import json
 import os
+os.environ.setdefault("STREAMLIT_SERVER_FILE_WATCHER_TYPE", "none")
 from pathlib import Path
 import sys
 import time
@@ -44,6 +57,25 @@ DEFAULT_CORPUS_PATH = (
 )
 DEFAULT_BM25_INDEX_PATH = PROJECT_ROOT / "data" / "indices" / "bm25_index.pkl"
 DEFAULT_DENSE_INDEX_DIR = PROJECT_ROOT / "data" / "indices" / "dense_bge_m3"
+DEFAULT_HYBRID_CONFIG_PATH = PROJECT_ROOT / "data" / "indices" / "hybrid_config.json"
+
+# BM25 tuned chính thức (Phase 5): k1=1.80, b=0.85
+BM25_TUNED_K1 = 1.80
+BM25_TUNED_B = 0.85
+
+# Hai phương pháp truy xuất hiển thị cho người dùng
+RETRIEVER_HYBRID = "Hybrid (BM25 + BGE-M3) — chính xác nhất"
+RETRIEVER_BM25 = "BM25 — nhanh, nhẹ"
+
+# Thứ tự ưu tiên model Groq (model thực tế được lấy từ danh sách live của Groq)
+GROQ_MODEL_PRIORITY = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
+OLLAMA_URL = "http://localhost:11434"
 
 
 def get_secret_or_env(key: str, default: str = "") -> str:
@@ -123,28 +155,56 @@ def get_laws_catalog(corpus: Dict[int, Dict[str, Any]]) -> Dict[str, List[int]]:
 def load_bm25():
     _ensure_remote_file(DEFAULT_BM25_INDEX_PATH, "data/indices/bm25_index.pkl", min_size=20_000_000)
     if DEFAULT_BM25_INDEX_PATH.exists():
-        return BM25Retriever.load(DEFAULT_BM25_INDEX_PATH)
+        retriever = BM25Retriever.load(DEFAULT_BM25_INDEX_PATH)
+        # Dùng cấu hình BM25 tuned chính thức (không cần rebuild postings)
+        retriever.k1 = BM25_TUNED_K1
+        retriever.b = BM25_TUNED_B
+        return retriever
     return None
 
 
-@st.cache_resource(show_spinner="Đang nạp chỉ mục ngữ nghĩa Dense (BGE-M3 + FAISS)...")
-def load_dense():
-    if DEFAULT_DENSE_INDEX_DIR.exists():
-        from src.retrieval.dense.encoder import DenseEncoder
-        from src.retrieval.dense.retriever import DenseRetriever
+@st.cache_resource(show_spinner="Đang nạp mô hình ngữ nghĩa BGE-M3 + chỉ mục vector (lần đầu ~30-60 giây)...")
+def load_hybrid(_bm25_retriever):
+    """Nạp Hybrid Weighted RRF (Phase 11) = BGE-M3 dense + BM25 tuned.
 
-        encoder = DenseEncoder()
-        return DenseRetriever.load(DEFAULT_DENSE_INDEX_DIR, encoder=encoder)
-    return None
-
-
-@st.cache_resource(show_spinner="Đang nạp mô hình Reranker (BAAI/bge-reranker-base)...")
-def load_reranker():
+    Trả về (retriever, error_message). Nếu lỗi, retriever=None để app tự dùng BM25.
+    """
     try:
-        import FlagEmbedding
-        from src.retrieval.reranking.cross_encoder import ArticleReranker
+        if _bm25_retriever is None:
+            return None, "Chưa có chỉ mục BM25."
+        has_dense_index = (
+            (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists()
+            or (DEFAULT_DENSE_INDEX_DIR / "index.faiss").exists()
+        )
+        if not has_dense_index:
+            return None, "Chưa có chỉ mục vector BGE-M3 trên môi trường này."
+        from src.retrieval.dense_hf_retriever import HFDenseRetriever
+        from src.retrieval.hybrid.retriever import HybridRetriever
 
-        return ArticleReranker(device="cpu", max_length=384)
+        dense = HFDenseRetriever.load(DEFAULT_DENSE_INDEX_DIR)
+        dense.search("khởi động mô hình", top_k=1)  # warm-up: tải model ngay lúc khởi động
+        if DEFAULT_HYBRID_CONFIG_PATH.exists():
+            hybrid = HybridRetriever.load(
+                DEFAULT_HYBRID_CONFIG_PATH, dense_retriever=dense, bm25_retriever=_bm25_retriever
+            )
+        else:
+            hybrid = HybridRetriever(dense, _bm25_retriever, "weighted_rrf", 5, 0.75, 0.25, 100)
+        return hybrid, ""
+    except Exception as exc:  # noqa: BLE001
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+@st.cache_resource(show_spinner="Đang nạp LoRA Legal Reranker đã huấn luyện...")
+def load_finetuned_reranker():
+    weights_path = PROJECT_ROOT / "data" / "indices" / "reranker_finetuned" / "lora_reranker_weights.pt"
+    if not weights_path.exists():
+        return None
+    try:
+        from src.retrieval.reranking.finetuned_reranker import FinetunedLegalReranker
+
+        reranker = FinetunedLegalReranker(weights_path=weights_path)
+        reranker._init_model()
+        return reranker if reranker.is_finetuned else None
     except Exception:
         return None
 
@@ -164,111 +224,38 @@ def load_compressor():
     return LegalPassageCompressor()
 
 
-def search_bm25(
-    query: str, top_k: int, bm25_retriever, corpus: Dict[int, Dict[str, Any]]
+def run_search(
+    query: str, top_k: int, retriever, corpus: Dict[int, Dict[str, Any]], reranker=None
 ) -> List[Dict[str, Any]]:
-    if not bm25_retriever:
+    if retriever is None:
         return []
-    results = bm25_retriever.search(query, top_k=top_k)
-    docs = []
-    for r in results:
-        meta = corpus.get(r.article_id, {})
-        docs.append(
-            {
-                "rank": r.rank,
-                "article_id": r.article_id,
-                "score": float(r.score),
-                "law_id": meta.get("law_id", "N/A"),
-                "aid": meta.get("aid", "N/A"),
-                "text": meta.get("text", ""),
-            }
-        )
-    return docs
-
-
-def search_dense(
-    query: str, top_k: int, dense_retriever, corpus: Dict[int, Dict[str, Any]]
-) -> List[Dict[str, Any]]:
-    if not dense_retriever:
-        return []
-    results = dense_retriever.search(query, top_k=top_k)
-    docs = []
-    for r in results:
-        meta = corpus.get(r.article_id, {})
-        docs.append(
-            {
-                "rank": r.rank,
-                "article_id": r.article_id,
-                "score": float(r.score),
-                "law_id": meta.get("law_id", "N/A"),
-                "aid": meta.get("aid", "N/A"),
-                "text": meta.get("text", ""),
-            }
-        )
-    return docs
-
-
-def search_hybrid(
-    query: str,
-    top_k: int,
-    bm25_retriever,
-    dense_retriever,
-    corpus: Dict[int, Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    if not dense_retriever and bm25_retriever:
-        return search_bm25(query, top_k, bm25_retriever, corpus)
-    bm25_res = bm25_retriever.search(query, top_k=top_k * 2) if bm25_retriever else []
-    dense_res = dense_retriever.search(query, top_k=top_k * 2) if dense_retriever else []
-
-    rrf_scores: Dict[int, float] = {}
-    for rank, r in enumerate(bm25_res, start=1):
-        rrf_scores[r.article_id] = rrf_scores.get(r.article_id, 0.0) + (1.0 / (60 + rank))
-    for rank, r in enumerate(dense_res, start=1):
-        rrf_scores[r.article_id] = rrf_scores.get(r.article_id, 0.0) + (1.0 / (60 + rank))
-
-    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[:top_k]
-    docs = []
-    for rank, aid in enumerate(sorted_ids, start=1):
-        meta = corpus.get(aid, {})
-        docs.append(
-            {
-                "rank": rank,
-                "article_id": aid,
-                "score": float(rrf_scores[aid]),
-                "law_id": meta.get("law_id", "N/A"),
-                "aid": meta.get("aid", "N/A"),
-                "text": meta.get("text", ""),
-            }
-        )
-    return docs
-
-
-def search_hybrid_rerank(
-    query: str,
-    top_k: int,
-    bm25_retriever,
-    dense_retriever,
-    reranker,
-    corpus: Dict[int, Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    pool_size = max(15, top_k * 2)
-    candidates = search_hybrid(query, pool_size, bm25_retriever, dense_retriever, corpus)
-    if not reranker or not candidates:
-        return candidates[:top_k]
-
-    candidate_ids = [c["article_id"] for c in candidates]
-    candidate_texts = [c["text"] for c in candidates]
-    try:
-        rerank_results = reranker.rerank(
+    if reranker is not None:
+        pool_k = max(top_k, 10)  # giới hạn Top-10 khi chạy tương tác trên CPU để giảm một nửa độ trễ
+        first_stage = retriever.search(query, top_k=pool_k)
+        cand_ids = [r.article_id for r in first_stage]
+        cand_priors = [float(r.score) for r in first_stage]
+        cand_texts = []
+        for aid in cand_ids:
+            meta = corpus.get(aid, {})
+            lid, a_str, txt = meta.get("law_id", ""), meta.get("aid", ""), meta.get("text", "")
+            header = f"[Văn bản: {lid} | Điều: {a_str}] " if lid else ""
+            full_t = (header + txt).strip()
+            if len(full_t) > 1600:
+                full_t = full_t[:1200].rstrip() + "\n...\n" + full_t[-400:].lstrip()
+            cand_texts.append(full_t)
+        results = reranker.rerank(
             query=query,
-            candidate_ids=candidate_ids,
-            candidate_texts=candidate_texts,
+            candidate_ids=cand_ids,
+            candidate_texts=cand_texts,
+            candidate_prior_scores=cand_priors,
+            candidate_pool_size=pool_k,
             top_k=top_k,
         )
-    except Exception:
-        return candidates[:top_k]
+    else:
+        results = retriever.search(query, top_k=top_k)
+
     docs = []
-    for r in rerank_results:
+    for r in results:
         meta = corpus.get(r.article_id, {})
         docs.append(
             {
@@ -288,7 +275,7 @@ def build_prompts(
 ) -> tuple[str, str, List[Dict[str, Any]]]:
     system_prompt = LegalResponseFormatter.SYSTEM_PROMPT_TEMPLATE
 
-    active_docs = docs[:3]
+    active_docs = docs[:5]
     if compressor:
         compressed_docs = compressor.compress_documents(query, active_docs)
     else:
@@ -315,275 +302,217 @@ def build_prompts(
     return user_prompt, system_prompt, compressed_docs
 
 
-def fetch_groq_models(api_key: str) -> List[str]:
-    verified_models = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it",
-    ]
-    if not api_key:
-        return verified_models
-    headers = {
-        "Authorization": f"Bearer {api_key.strip()}",
-        "User-Agent": "Mozilla/5.0",
-    }
-    try:
-        resp = requests.get(
-            "https://api.groq.com/openai/v1/models", headers=headers, timeout=5
-        )
+@st.cache_data(ttl=1800, show_spinner=False)
+def _fetch_groq_model_ids(api_key: str) -> List[str]:
+    """Lấy danh sách model Groq. Ném exception khi lỗi để st.cache_data KHÔNG cache lỗi."""
+    last_exc: Exception = RuntimeError("unknown")
+    for _ in range(3):
+        try:
+            resp = requests.get(
+                "https://api.groq.com/openai/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=20,
+            )
+        except requests.RequestException as exc:
+            last_exc = exc
+            continue
+        if resp.status_code in (401, 403):
+            raise PermissionError(f"Groq từ chối key (HTTP {resp.status_code}).")
         if resp.status_code == 200:
-            data = resp.json().get("data", [])
-            excluded = ["whisper", "guard", "tts", "embed", "vision", "specdec"]
-            models = [
-                m["id"]
-                for m in data
-                if "id" in m and not any(kw in m["id"].lower() for kw in excluded)
-            ]
-            if models:
-                # Prioritize high quality conversational models
-                priority = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-                for p in reversed(priority):
-                    if p in models:
-                        models.remove(p)
-                        models.insert(0, p)
-                return models
-    except Exception:
-        pass
-    return verified_models
+            return [m.get("id", "") for m in resp.json().get("data", [])]
+        last_exc = RuntimeError(f"HTTP {resp.status_code}")
+    raise last_exc
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_gemini_models(api_key: str) -> list[str]:
-    default_models = [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-    ]
+def pick_groq_model(api_key: str) -> tuple[str, str]:
+    """Kiểm tra Groq key + chọn model chat còn hoạt động. Trả về (model, error)."""
     if not api_key:
-        return default_models
+        return "", "Chưa cấu hình GROQ_API_KEY."
     try:
-        clean_key = api_key.strip().strip("'\"").strip()
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_key}"
-        resp = requests.get(url, timeout=6)
+        ids = _fetch_groq_model_ids(api_key)
+    except PermissionError as exc:
+        return "", str(exc)
+    except Exception:  # noqa: BLE001
+        # Mạng chậm/timeout: vẫn dùng model ưu tiên; nếu lỗi thật sẽ tự lùi về Ollama khi trả lời
+        return GROQ_MODEL_PRIORITY[0], ""
+    for m in GROQ_MODEL_PRIORITY:
+        if m in ids:
+            return m, ""
+    excluded = ["whisper", "guard", "tts", "orpheus", "embed", "safeguard", "allam"]
+    chat = [m for m in ids if m and not any(k in m.lower() for k in excluded)]
+    if chat:
+        return chat[0], ""
+    return "", "Groq không còn model chat khả dụng."
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def pick_ollama_model() -> str:
+    """Trả về tên model Ollama local đầu tiên (nếu Ollama đang chạy), ngược lại ''."""
+    try:
+        resp = requests.get(f"{OLLAMA_URL}/api/tags", timeout=2)
         if resp.status_code == 200:
-            data = resp.json().get("models", [])
-            valid_models = []
-            for m in data:
-                methods = m.get("supportedGenerationMethods", [])
-                if "generateContent" in methods:
-                    name = m.get("name", "").replace("models/", "").strip()
-                    if name and not any(kw in name.lower() for kw in ["embed", "aqa", "imagen"]):
-                        valid_models.append(name)
-            if valid_models:
-                def rank_key(m_name: str):
-                    m_lower = m_name.lower()
-                    if "2.0-flash" in m_lower:
-                        return 0
-                    if "1.5-flash" in m_lower:
-                        return 1
-                    if "1.5-pro" in m_lower:
-                        return 2
-                    return 3
-                valid_models.sort(key=lambda x: (rank_key(x), x))
-                return valid_models
+            models = [m.get("name", "") for m in resp.json().get("models", [])]
+            models = [m for m in models if m and "embed" not in m]
+            return models[0] if models else ""
     except Exception:
         pass
-    return default_models
+    return ""
+
+
+def _strip_think(chunks: Generator[str, None, None]) -> Generator[str, None, None]:
+    """Loại bỏ khối <think>...</think> (một số model reasoning trả về trong content)."""
+    in_think = False
+    buf = ""
+    for piece in chunks:
+        buf += piece
+        out = ""
+        while buf:
+            if in_think:
+                end = buf.find("</think>")
+                if end == -1:
+                    buf = buf[-8:]
+                    break
+                buf = buf[end + 8 :]
+                in_think = False
+            else:
+                start = buf.find("<think>")
+                if start == -1:
+                    keep = 7 if "<" in buf[-7:] else 0
+                    out += buf[: len(buf) - keep] if keep else buf
+                    buf = buf[len(buf) - keep :] if keep else ""
+                    break
+                out += buf[:start]
+                buf = buf[start + 7 :]
+                in_think = True
+        if out:
+            yield out
+    if buf and not in_think:
+        yield buf
 
 
 def stream_groq(
-    prompt: str, system_prompt: str, api_key: str, model: str
+    prompt: str, system_prompt: str, api_key: str, model: str, max_tokens: int = 750
 ) -> Generator[str, None, None]:
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key.strip()}",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0",
-    }
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 1024,
-        "stream": True,
-    }
-    try:
-        response = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
-        # Self-healing: if model has a strict max_tokens limit (e.g. 512), retry automatically
-        if response.status_code == 400 and "max_tokens" in response.text and payload["max_tokens"] > 512:
-            payload["max_tokens"] = 512
-            response = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
-        
-        if response.status_code != 200:
-            yield f"\n[Lỗi kết nối Groq API] HTTP {response.status_code}: {response.text}"
-            return
-        response.encoding = "utf-8"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # Tự động xoay vòng qua các model Groq và hạ max_tokens dưới 1000 để không bao giờ bị lỗi OTPM Limit 1000
+    candidate_models = [model] + [
+        m for m in ("openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b") if m != model
+    ]
+    last_err = ""
+    response = None
+    for cand_model in candidate_models:
+        for tok_limit in (max_tokens, 500):
+            payload = {
+                "model": cand_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.2,
+                "max_tokens": tok_limit,
+                "stream": True,
+            }
+            resp = requests.post(url, json=payload, headers=headers, stream=True, timeout=(20, 90))
+            if resp.status_code == 200:
+                response = resp
+                break
+            last_err = f"Groq ({cand_model}) HTTP {resp.status_code}: {resp.text[:220]}"
+            if resp.status_code not in (400, 413, 429):
+                break
+        if response is not None:
+            break
+
+    if response is None:
+        raise RuntimeError(last_err)
+    response.encoding = "utf-8"
+
+    def _gen():
         for line in response.iter_lines():
             if not line:
                 continue
-            line_str = line.decode("utf-8", errors="replace").strip()
-            if line_str.startswith("data: ") and line_str != "data: [DONE]":
-                raw_data = line_str[6:]
+            s = line.decode("utf-8", errors="replace").strip()
+            if s.startswith("data: ") and s != "data: [DONE]":
                 try:
-                    chunk = json.loads(raw_data)
-                    delta = chunk.get("choices", [{}])[0].get("delta", {})
-                    content = delta.get("content", "")
-                    if content:
-                        yield content
+                    delta = json.loads(s[6:]).get("choices", [{}])[0].get("delta", {})
                 except json.JSONDecodeError:
-                    pass
-    except Exception as err:
-        yield f"\n[Lỗi kết nối Groq]: {err}"
+                    continue
+                if delta.get("content"):
+                    yield delta["content"]
 
-
-def stream_gemini(
-    prompt: str, system_prompt: str, api_key: str, model: str = "gemini-2.0-flash"
-) -> Generator[str, None, None]:
-    clean_key = api_key.strip().strip("'\"").strip()
-    if not clean_key:
-        yield "\n[Lỗi kết nối Gemini API]: API Key bị trống. Vui lòng nhập Gemini API Key ở menu cài đặt."
-        return
-
-    full_prompt = f"{system_prompt}\n\n---\n{prompt}"
-    payload = {
-        "contents": [{"parts": [{"text": full_prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
-    }
-    headers = {"Content-Type": "application/json"}
-
-    # Build prioritized candidate models (only real Google AI Studio models)
-    models_to_try = [model]
-    for fallback in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
-        if fallback not in models_to_try:
-            models_to_try.append(fallback)
-
-    last_error = ""
-    for target_model in models_to_try:
-        endpoints = [
-            (f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:streamGenerateContent?alt=sse&key={clean_key}", True),
-            (f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={clean_key}", False),
-        ]
-        model_failed = False
-        for url, is_stream in endpoints:
-            try:
-                response = requests.post(url, json=payload, headers=headers, stream=is_stream, timeout=45)
-                if response.status_code == 200:
-                    if is_stream:
-                        response.encoding = "utf-8"
-                        has_text = False
-                        for raw_line in response.iter_lines():
-                            if not raw_line:
-                                continue
-                            line_str = raw_line.decode("utf-8", errors="replace").strip()
-                            if line_str.startswith("data:"):
-                                line_str = line_str[5:].strip()
-                            if '"text":' in line_str:
-                                import json
-                                try:
-                                    chunk_json = json.loads(line_str)
-                                    candidates = chunk_json.get("candidates", [])
-                                    if candidates:
-                                        parts = candidates[0].get("content", {}).get("parts", [])
-                                        for part in parts:
-                                            piece = part.get("text", "")
-                                            if piece:
-                                                has_text = True
-                                                yield piece
-                                except Exception:
-                                    pass
-                        if has_text:
-                            return
-                    else:
-                        data = response.json()
-                        candidates = data.get("candidates", [])
-                        if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            for part in parts:
-                                piece = part.get("text", "")
-                                if piece:
-                                    yield piece
-                            return
-                else:
-                    err_msg = response.text
-                    try:
-                        err_json = response.json()
-                        err_msg = err_json.get("error", {}).get("message", response.text)
-                    except Exception:
-                        pass
-                    last_error = f"HTTP {response.status_code} ({target_model}): {err_msg}"
-                    if response.status_code == 404:
-                        model_failed = True
-                        break
-            except Exception as e:
-                last_error = str(e)
-        if model_failed:
-            continue
-
-    yield f"\n[Lỗi kết nối Gemini API]: {last_error}\n"
-
-
-def stream_colab(
-    prompt: str, system_prompt: str, endpoint_url: str
-) -> Generator[str, None, None]:
-    url = endpoint_url.strip().rstrip("/")
-    if not url.endswith("/v1/chat/completions"):
-        url = f"{url}/v1/chat/completions"
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "model": "qwen2.5-7b",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1024,
-    }
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=180)
-        if response.status_code != 200:
-            yield f"\n[Lỗi kết nối Colab API] HTTP {response.status_code}: {response.text}"
-            return
-        result = response.json()
-        text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        yield text
-    except Exception as err:
-        yield f"\n[Lỗi kết nối Colab]: {err}"
+    yield from _strip_think(_gen())
 
 
 def stream_ollama(
-    prompt: str, system_prompt: str, model: str = "qwen2.5:1.5b"
+    prompt: str, system_prompt: str, model: str
 ) -> Generator[str, None, None]:
-    url = "http://localhost:11434/api/generate"
     payload = {
         "model": model,
         "prompt": prompt,
         "system": system_prompt,
         "stream": True,
-        "options": {"temperature": 0.2, "repeat_penalty": 1.15, "num_predict": 512},
+        "options": {"temperature": 0.2, "repeat_penalty": 1.15, "num_predict": 768},
     }
-    try:
-        response = requests.post(url, json=payload, stream=True, timeout=60)
-        if response.status_code != 200:
-            yield f"\n[Lỗi kết nối Ollama] HTTP {response.status_code}: {response.text}"
-            return
-        response.encoding = "utf-8"
+    response = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, stream=True, timeout=300)
+    if response.status_code != 200:
+        raise RuntimeError(f"Ollama HTTP {response.status_code}: {response.text[:300]}")
+    response.encoding = "utf-8"
+
+    def _gen():
         for line in response.iter_lines():
             if not line:
                 continue
-            line_str = line.decode("utf-8", errors="replace").strip()
             try:
-                chunk = json.loads(line_str)
-                text = chunk.get("response", "")
-                if text:
-                    yield text
+                text = json.loads(line.decode("utf-8", errors="replace")).get("response", "")
             except json.JSONDecodeError:
-                pass
-    except Exception as err:
-        yield f"\n[Lỗi kết nối Ollama]: {err}"
+                continue
+            if text:
+                yield text
+
+    yield from _strip_think(_gen())
+
+
+def generate_answer(
+    user_prompt: str, system_prompt: str, llm: Dict[str, str]
+) -> tuple[str, str]:
+    """Sinh câu trả lời với backend đã chọn; tự động lùi Groq -> Ollama -> chỉ tra cứu.
+
+    Trả về (full_response, backend_used).
+    """
+    attempts = []
+    if llm.get("groq_model"):
+        attempts.append(("Groq", lambda: stream_groq(user_prompt, system_prompt, llm["groq_key"], llm["groq_model"])))
+    if llm.get("ollama_model"):
+        attempts.append(("Ollama", lambda: stream_ollama(user_prompt, system_prompt, llm["ollama_model"])))
+
+    errors = []
+    for name, make_stream in attempts:
+        try:
+            with st.spinner(f"🧠 Đang soạn câu trả lời ({name})..."):
+                gen = make_stream()
+                first = next(gen, "")  # lỗi kết nối/HTTP sẽ nổ ra ở đây
+            if not first:
+                raise RuntimeError("phản hồi rỗng")
+
+            def _chain(first_piece=first, rest=gen):
+                yield first_piece
+                yield from rest
+
+            text = st.write_stream(_chain())
+            if isinstance(text, str) and text.strip():
+                return text, name
+            raise RuntimeError("phản hồi rỗng")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{name}: {exc}")
+
+    msg = (
+        "**[Chế độ Tra cứu - Không LLM]**\n\n"
+        "Dưới đây là các điều luật có độ khớp cao nhất được hệ thống tìm thấy dựa trên câu hỏi của bạn."
+    )
+    if errors:
+        st.warning("Không gọi được mô hình ngôn ngữ — " + " | ".join(errors))
+    st.markdown(msg)
+    return msg, "Không LLM"
 
 
 def main():
@@ -639,13 +568,19 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Nạp dữ liệu nền tảng
     corpus = load_corpus()
     laws_catalog = get_laws_catalog(corpus)
     bm25_retriever = load_bm25()
+    hybrid_retriever, hybrid_error = load_hybrid(bm25_retriever)
+    finetuned_reranker = load_finetuned_reranker() if hybrid_retriever else None
     normalizer = load_normalizer()
     contextualizer = load_contextualizer()
     compressor = load_compressor()
+
+    groq_key = get_secret_or_env("GROQ_API_KEY").strip().strip("'\"")
+    groq_model, groq_error = pick_groq_model(groq_key)
+    ollama_model = pick_ollama_model()
+    llm = {"groq_key": groq_key, "groq_model": groq_model, "ollama_model": ollama_model}
 
     # --- SIDEBAR CONFIGURATION ---
     with st.sidebar:
@@ -653,110 +588,46 @@ def main():
         st.title("⚖️ Cấu Hình RAG")
 
         st.subheader("1. Phương Pháp Truy Xuất")
-        retriever_choice = st.selectbox(
+        retriever_options = [RETRIEVER_HYBRID, RETRIEVER_BM25] if hybrid_retriever else [RETRIEVER_BM25]
+        retriever_choice = st.radio(
             "Retriever:",
-            [
-                "BM25 (Toàn bộ 59,636 điều luật - Ổn định & Tối ưu Cloud)",
-                "Hybrid + Reranker (Yêu cầu GPU Server)",
-                "Hybrid (BM25 + Dense RRF)",
-                "Dense (BGE-M3 Semantic)",
-            ],
+            retriever_options,
             index=0,
-            help="BM25 quét tức thì trên toàn bộ 59,636 điều luật Việt Nam với độ trễ < 10ms, tối ưu tuyệt đối cho môi trường Cloud.",
+            help="Hybrid Weighted RRF (Phase 11): nDCG@10 = 0.6448 trên tập test. "
+            "BM25 tuned (Phase 5): nDCG@10 = 0.4866, nhanh nhất.",
         )
-
-        top_k = st.slider("Số điều luật trích xuất (Top-K):", min_value=1, max_value=10, value=3)
+        if not hybrid_retriever:
+            st.caption(
+                "ℹ️ Chế độ Cloud 1GB RAM: đang dùng **BM25 Tuned** (`k1=1.80, b=0.85`). "
+                "Mô hình **Hybrid BGE-M3 + LoRA Reranker** tự động kích hoạt khi chạy Local."
+            )
+        if finetuned_reranker and retriever_choice == RETRIEVER_HYBRID:
+            st.success(f"✅ Đã kích hoạt LoRA Legal Reranker (α={finetuned_reranker.fusion_alpha})")
+        top_k = st.slider("Số điều luật trích xuất (Top-K):", min_value=1, max_value=10, value=5)
 
         st.divider()
-
-        st.subheader("2. Mô hình Ngôn ngữ (LLM)")
-        backend_choice = st.selectbox(
-            "Backend trả lời:",
-            [
-                "Groq Cloud API (Llama 3.3 70B - Khuyên dùng)",
-                "Google Gemini API",
-                "Chỉ tra cứu điều luật (Không dùng LLM)",
-                "Google Colab GPU Server (Qwen-7B)",
-                "Ollama Local (Offline)",
-            ],
-            index=0,
-        )
-
-        colab_url = ""
-        if "Colab" in backend_choice:
-            colab_url = st.text_input(
-                "Colab Tunnel URL:",
-                value="",
-                placeholder="https://xxxx.trycloudflare.com",
-                help="Dán URL do Cloudflare Tunnel sinh ra ở bước chạy Colab.",
-            )
-
-        groq_api_key = ""
-        groq_model = "llama-3.3-70b-versatile"
-        if "Groq" in backend_choice:
-            default_key = get_secret_or_env("GROQ_API_KEY", "")
-            groq_api_key = st.text_input(
-                "Groq API Key:",
-                value=default_key,
-                type="password",
-                help="Lấy API Key miễn phí tại console.groq.com",
-            )
-            available_models = fetch_groq_models(groq_api_key)
-            default_idx = 0
-            if "llama-3.3-70b-versatile" in available_models:
-                default_idx = available_models.index("llama-3.3-70b-versatile")
-            elif "llama-3.1-8b-instant" in available_models:
-                default_idx = available_models.index("llama-3.1-8b-instant")
-            groq_model = st.selectbox("Model Groq:", available_models, index=default_idx)
-
-        gemini_api_key = ""
-        gemini_model = "gemini-2.0-flash"
-        if "Gemini" in backend_choice:
-            default_gemini_key = get_secret_or_env("GEMINI_API_KEY", "")
-            gemini_api_key = st.text_input("Gemini API Key:", value=default_gemini_key, type="password")
-            available_gemini = fetch_gemini_models(gemini_api_key)
-            default_idx = 0
-            if "gemini-2.0-flash" in available_gemini:
-                default_idx = available_gemini.index("gemini-2.0-flash")
-            elif "gemini-1.5-flash" in available_gemini:
-                default_idx = available_gemini.index("gemini-1.5-flash")
-            gemini_model = st.selectbox("Model Gemini:", available_gemini, index=default_idx)
-            if gemini_api_key:
-                if st.button("🧪 Thử kết nối Gemini Key", use_container_width=True):
-                    clean_test_key = gemini_api_key.strip().strip("'\"").strip()
-                    test_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_test_key}"
-                    try:
-                        t_res = requests.get(test_url, timeout=5)
-                        if t_res.status_code == 200:
-                            t_models = [
-                                m.get("name", "").replace("models/", "")
-                                for m in t_res.json().get("models", [])
-                                if "generateContent" in m.get("supportedGenerationMethods", [])
-                            ]
-                            st.success(f"✅ Key hợp lệ! Tìm thấy {len(t_models)} models: {', '.join(t_models[:3])}")
-                        else:
-                            st.error(f"❌ Google từ chối (HTTP {t_res.status_code}): {t_res.text}")
-                    except Exception as e:
-                        st.error(f"❌ Lỗi mạng: {e}")
-
-        ollama_model = "qwen2.5:1.5b"
-        if "Ollama" in backend_choice:
-            ollama_model = st.text_input("Tên Model Ollama:", value="qwen2.5:1.5b")
+        st.subheader("2. Mô hình Ngôn ngữ (tự động)")
+        if groq_model:
+            st.success(f"✅ Groq Cloud — `{groq_model}`")
+        elif ollama_model:
+            st.info(f"✅ Ollama local — `{ollama_model}`")
+            if groq_error:
+                st.caption(f"Groq: {groq_error}")
+        else:
+            st.warning("⚠️ Không có LLM — chỉ hiển thị điều luật tra cứu được.")
+            st.caption(f"Groq: {groq_error} | Ollama: không chạy.")
+        if groq_model and ollama_model:
+            st.caption(f"Dự phòng khi Groq lỗi: Ollama `{ollama_model}`")
 
         st.divider()
         st.caption(f"📊 Dữ liệu: **{len(corpus):,} điều luật** | **{len(laws_catalog):,} văn bản**")
-        if st.button("🗑️ Xóa lịch sử hỏi đáp", use_container_width=True):
+        if st.button("🗑️ Xóa lịch sử hỏi đáp", width="stretch"):
             st.session_state.messages = []
             st.session_state.query_logs = []
             st.rerun()
 
-    dense_retriever = None
-    if any(x in retriever_choice for x in ["Dense", "Hybrid"]):
-        dense_retriever = load_dense()
-
-    reranker = None
-    if "Reranker" in retriever_choice:
-        reranker = load_reranker()
+    active_retriever = hybrid_retriever if retriever_choice == RETRIEVER_HYBRID else bm25_retriever
+    active_reranker = finetuned_reranker if retriever_choice == RETRIEVER_HYBRID else None
 
     # Session states
     if "messages" not in st.session_state:
@@ -860,16 +731,7 @@ def main():
             # Retrieval
             with st.spinner("⚡ Đang quét chỉ mục và truy xuất điều luật..."):
                 t0 = time.time()
-                if "Reranker" in retriever_choice:
-                    retrieved_docs = search_hybrid_rerank(
-                        search_query, top_k, bm25_retriever, dense_retriever, reranker, corpus
-                    )
-                elif "Hybrid" in retriever_choice:
-                    retrieved_docs = search_hybrid(search_query, top_k, bm25_retriever, dense_retriever, corpus)
-                elif "Dense" in retriever_choice:
-                    retrieved_docs = search_dense(search_query, top_k, dense_retriever, corpus)
-                else:
-                    retrieved_docs = search_bm25(search_query, top_k, bm25_retriever, corpus)
+                retrieved_docs = run_search(search_query, top_k, active_retriever, corpus, reranker=active_reranker)
                 retrieval_ms = (time.time() - t0) * 1000
 
             # Answer synthesis
@@ -885,39 +747,8 @@ def main():
                 )
                 st.caption(status_text)
 
-                full_response = ""
                 t_llm0 = time.time()
-                if "Colab" in backend_choice:
-                    if not colab_url:
-                        full_response = "⚠️ **Vui lòng dán Colab Tunnel URL** vào thanh cài đặt bên trái."
-                        st.warning(full_response)
-                    else:
-                        with st.spinner("🧠 GPU Colab đang suy luận câu trả lời..."):
-                            response_gen = stream_colab(user_prompt, system_prompt, colab_url)
-                            full_response = st.write_stream(response_gen)
-                elif "Groq" in backend_choice:
-                    if not groq_api_key:
-                        full_response = "⚠️ **Vui lòng nhập Groq API Key** ở thanh cài đặt bên trái."
-                        st.warning(full_response)
-                    else:
-                        response_gen = stream_groq(user_prompt, system_prompt, groq_api_key, groq_model)
-                        full_response = st.write_stream(response_gen)
-                elif "Gemini" in backend_choice:
-                    if not gemini_api_key:
-                        full_response = "⚠️ **Vui lòng nhập Gemini API Key** ở thanh cài đặt bên trái."
-                        st.warning(full_response)
-                    else:
-                        response_gen = stream_gemini(user_prompt, system_prompt, gemini_api_key, gemini_model)
-                        full_response = st.write_stream(response_gen)
-                elif "Ollama" in backend_choice:
-                    response_gen = stream_ollama(user_prompt, system_prompt, ollama_model)
-                    full_response = st.write_stream(response_gen)
-                else:
-                    full_response = (
-                        "**[Chế độ Tra cứu - Không LLM]**\n\n"
-                        "Dưới đây là các điều luật có độ khớp cao nhất được hệ thống tìm thấy dựa trên câu hỏi của bạn."
-                    )
-                    st.markdown(full_response)
+                full_response, backend_used = generate_answer(user_prompt, system_prompt, llm)
                 llm_ms = (time.time() - t_llm0) * 1000
 
                 # Grounding & structured data
@@ -986,7 +817,7 @@ def main():
                     "Thời gian": time.strftime("%H:%M:%S"),
                     "Câu hỏi": prompt_to_run,
                     "Phương pháp": retriever_choice.split()[0],
-                    "Mô hình": backend_choice.split()[0],
+                    "Mô hình": backend_used,
                     "Độ trễ tìm kiếm (ms)": round(retrieval_ms, 1),
                     "Độ trễ LLM (ms)": round(llm_ms, 1),
                     "Điểm tin cậy": f"{grounding.get('grounding_score', 0.0) * 100:.0f}%" if structured_data else "N/A",
@@ -999,19 +830,19 @@ def main():
     # =========================================================================
     with tab_search:
         st.subheader("🔍 Tìm Kiếm Nhanh Điều Luật (Retrieval-Only)")
-        st.caption("Tìm kiếm siêu tốc dựa trên Inverted Index (BM25) và Semantic Dense Index (BGE-M3), không cần bật LLM.")
+        st.caption("Tìm kiếm dựa trên BM25 và Hybrid (BM25 + BGE-M3), không cần LLM.")
 
         c_query, c_method, c_k = st.columns([3, 1.5, 1])
         search_kw = c_query.text_input("Từ khóa hoặc nội dung điều luật:", placeholder="Ví dụ: thời gian thử việc, nghỉ thai sản, hợp đồng mùa vụ...")
         search_method = c_method.selectbox(
             "Phương pháp:",
-            ["Hybrid + Reranker", "Hybrid", "Dense (BGE-M3)", "BM25"],
+            retriever_options,
             index=0,
             key="fast_search_method",
         )
         search_topk = c_k.number_input("Top-K:", min_value=1, max_value=20, value=5, step=1)
 
-        if st.button("🚀 Bắt Đầu Tìm Kiếm", type="primary", use_container_width=True) or search_kw:
+        if st.button("🚀 Bắt Đầu Tìm Kiếm", type="primary", width="stretch") or search_kw:
             if not search_kw.strip():
                 st.info("Vui lòng nhập từ khóa để tìm kiếm.")
             else:
@@ -1021,14 +852,9 @@ def main():
 
                 t_s0 = time.time()
                 with st.spinner("Đang tìm kiếm..."):
-                    if "Reranker" in search_method:
-                        results = search_hybrid_rerank(norm_kw, search_topk, bm25_retriever, dense_retriever, reranker, corpus)
-                    elif "Hybrid" in search_method:
-                        results = search_hybrid(norm_kw, search_topk, bm25_retriever, dense_retriever, corpus)
-                    elif "Dense" in search_method:
-                        results = search_dense(norm_kw, search_topk, dense_retriever, corpus)
-                    else:
-                        results = search_bm25(norm_kw, search_topk, bm25_retriever, corpus)
+                    search_retriever = hybrid_retriever if search_method == RETRIEVER_HYBRID else bm25_retriever
+                    search_reranker = finetuned_reranker if search_method == RETRIEVER_HYBRID else None
+                    results = run_search(norm_kw, int(search_topk), search_retriever, corpus, reranker=search_reranker)
                 search_time = (time.time() - t_s0) * 1000
 
                 st.success(f"Tìm thấy **{len(results)} điều luật** phù hợp trong **{search_time:.1f}ms**:")
@@ -1144,7 +970,7 @@ def main():
         if total_queries > 0:
             st.markdown("#### Danh Sách Các Lượt Truy Vấn:")
             log_df = pd.DataFrame(st.session_state.query_logs)
-            st.dataframe(log_df, use_container_width=True)
+            st.dataframe(log_df, width="stretch")
 
             st.download_button(
                 label="📥 Tải xuống lịch sử hội thoại (JSON)",

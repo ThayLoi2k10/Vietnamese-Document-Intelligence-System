@@ -77,3 +77,17 @@ uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 pytest tests/test_api.py -v
 ```
 Toàn bộ các trường hợp kiểm thử (Health check, Search với các retriever khác nhau, Query với mock backend, Tra cứu document theo ID hợp lệ/bất hợp lệ) đều được tự động xác thực bằng `TestClient`.
+
+
+---
+
+## Streamlit app (`app.py`) — cấu hình serving local đã kiểm thử (2026-10-25)
+
+- **Retriever hiển thị cho người dùng (2 lựa chọn):**
+  - *Hybrid (BM25 + BGE-M3)* — mặc định. `HybridRetriever` weighted RRF theo `data/indices/hybrid_config.json` (k_rrf=5, w_dense=0.75, w_bm25=0.25, depth=100); nDCG@10 = 0.6448 (Phase 11).
+  - *BM25* — BM25 tuned (k1=1.80, b=0.85 được gán sau `load`), nDCG@10 = 0.4866 (Phase 5).
+  - Dense-only và Hybrid + Reranker đã bị bỏ khỏi UI: Dense-only kém Hybrid, còn reranker zero-shot làm giảm nDCG@10 (0.6096) và chậm (~580 ms/query trên GPU).
+- **Dense encoder dùng cho serving:** `src/retrieval/dense_hf_retriever.py` (`HFDenseRetriever`) dùng `transformers` thuần (CLS pooling + L2 normalize) trên `data/indices/dense_bge_m3/embeddings.f32.npy` có sẵn, không build lại. Lý do: `FlagEmbedding` import `datasets` → `pyarrow._dataset_parquet`, và DLL này bị Windows Application Control chặn trên máy dev. Đã kiểm tra: cosine giữa embedding encode lại và embedding đã lưu ≈ 1.000; truy vấn trên CPU ≈ 0.5 s.
+- **LLM (tự chọn, không có ô nhập key):** Groq (`GROQ_API_KEY` lấy từ `.env`/secrets; model lấy từ danh sách live theo thứ tự `qwen/qwen3.8-27b` → `openai/gpt-oss-120b` → …) → Ollama local (nếu đang chạy) → chế độ chỉ tra cứu. Gemini và Colab tunnel đã bị bỏ khỏi UI.
+- `.env` được đọc trực tiếp trong `app.py` (không phụ thuộc `python-dotenv`).
+- Chạy: `.\.venv\Scripts\python.exe -m streamlit run app.py`

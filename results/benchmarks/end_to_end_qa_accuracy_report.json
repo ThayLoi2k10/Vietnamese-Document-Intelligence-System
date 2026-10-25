@@ -1,0 +1,422 @@
+{
+  "num_evaluated_queries": 20,
+  "context_hit_top5_pct": 100.0,
+  "answer_success_rate_pct": 85.0,
+  "accurate_grounded_answer_pct": 85.0,
+  "mean_grounding_fidelity_pct": 88.2,
+  "details": [
+    {
+      "query_id": 591,
+      "query_text": "Nhiệm vụ, quyền hạn của Ban Thanh tra nhân dân ở cơ quan, đơn vị?",
+      "ground_truth_ids": [
+        5978
+      ],
+      "retrieved_top5_ids": [
+        47466,
+        47450,
+        5977,
+        5978,
+        5980
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nBan Thanh tra nhân dân (BTTN) ở cơ quan, đơn vị có nhiệm vụ và quyền hạn bao gồm:  \n\n1. Giám sát, kiểm tra việc thực hiện các quyết định, chính sách, pháp luật và chủ trương, đường lối của Đảng, Nhà nước tại cơ quan, đơn vị.  \n2. Xác minh, điều tra các vụ việc do người đứng đầu cơ quan, đơn vị giao hoặc do cán bộ, công chức, viên chức, người lao động đề xuất.  \n3. Kiế"
+    },
+    {
+      "query_id": 8068,
+      "query_text": "Xây dựng, ban hành kế hoạch thanh tra như thế nào?",
+      "ground_truth_ids": [
+        51357
+      ],
+      "retrieved_top5_ids": [
+        51357,
+        46053,
+        37879,
+        51373,
+        17921
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \n- Kế hoạch thanh tra được **xây dựng** bởi cơ quan thanh tra (cấp Bộ, tỉnh, sở, …) dựa trên *định hướng chương trình thanh tra* và *hướng dẫn* của Tổng Thanh tra Chính phủ hoặc cơ quan cấp trên.  \n- **Bản dự thảo** phải được trình lên cấp trên (Bộ trưởng, Chủ tịch UBND tỉnh, Giám đốc…) **theo các thời hạn cố định** (ví dụ: 15 / 11, 05 / 12 tùy cấp).  \n- Cấp trên **phê"
+    },
+    {
+      "query_id": 4639,
+      "query_text": "Tổ chức kinh doanh dịch vụ môi giới bất động sản có những nghĩa vụ gì?",
+      "ground_truth_ids": [
+        885
+      ],
+      "retrieved_top5_ids": [
+        885,
+        880,
+        890,
+        7297,
+        1899
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nTổ chức kinh doanh dịch vụ môi giới bất động sản phải:  \n\n1. Thực hiện đúng hợp đồng đã ký với khách hàng.  \n2. Cung cấp hồ sơ, thông tin đầy đủ, trung thực và chịu trách nhiệm về chúng.  \n3. Hỗ trợ đàm phán, ký kết và thực hiện các giao dịch mua‑bán, chuyển nhượng, cho thuê, cho thuê lại, cho thuê mua bất động sản.  \n4. Thực hiện chế độ báo cáo theo quy định của pháp"
+    },
+    {
+      "query_id": 3652,
+      "query_text": "2. Mã số doanh nghiệp có phải là mã số đơn vị tham gia bảo hiểm xã hội của doanh nghiệp không?",
+      "ground_truth_ids": [
+        54658
+      ],
+      "retrieved_top5_ids": [
+        54658,
+        26191,
+        55466,
+        40418,
+        26190
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 0.5,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "### 1️⃣ KẾT LUẬN TRỰC DIỆN  \n**Có** – Mã số doanh nghiệp (MSDN) đồng thời là mã số đơn vị tham gia bảo hiểm xã hội (BHXH) của doanh nghiệp.\n\n### 2️⃣ CĂN CỨ PHÁP LÝ  \n- **Văn bản**: Nghị định 01/2021/NĐ-CP (Điều 1).  \n- **Căn cứ**: “Mã số doanh nghiệp. Mã số này đồng thời là mã số thuế và mã số đơn vị tham gia bảo hiểm xã hội của doanh nghiệp.”  \n- **Trích dẫn**: “Mã số doanh nghiệp. Mã số này đồng"
+    },
+    {
+      "query_id": 11247,
+      "query_text": "Bên thuê khai thác kết cấu hạ tầng cảng cạn phải đáp ứng các điều kiện gì?",
+      "ground_truth_ids": [
+        18836
+      ],
+      "retrieved_top5_ids": [
+        18836,
+        21511,
+        18838,
+        18835,
+        18841
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (qwen/qwen3.8-27b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\nBên thuê khai thác kết cấu hạ tầng cảng cạn phải đáp ứng **đầy đủ 06 điều kiện** sau:\n1. Có tư cách pháp nhân theo quy định của pháp luật.\n2. Có năng lực về tài chính.\n3. Có đủ nhân lực để quản lý khai thác kết cấu hạ tầng sẽ thuê.\n4. Có phương án khai thác kết cấu hạ tầng đạt hiệu quả.\n5. Có giá thuê cao nhất và không thấp hơn giá cho thuê trong phương án cho thuê khai"
+    },
+    {
+      "query_id": 3071,
+      "query_text": "Trách nhiệm của người đại diện theo ủy quyền của chủ sở hữu, thành viên, cổ đông công ty là tổ chức như thế nào?",
+      "ground_truth_ids": [
+        55452
+      ],
+      "retrieved_top5_ids": [
+        55452,
+        26176,
+        55451,
+        13704,
+        26177
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 0.71,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nNgười đại diện theo ủy quyền của chủ sở hữu, thành viên, cổ đông (là tổ chức) phải:  \n\n- Chịu trách nhiệm trước người ủy quyền (chủ sở hữu, thành viên, cổ đông) nếu vi phạm các nghĩa vụ được quy định.  \n- Chủ sở hữu, thành viên, cổ đông chịu trách nhiệm trước bên thứ ba đối với các nghĩa vụ phát sinh từ việc người đại diện thực hiện quyền và nghĩa vụ.  \n- Thực hiện đầ"
+    },
+    {
+      "query_id": 7322,
+      "query_text": "Doanh nghiệp thành lập mới từ dự án đầu tư sản xuất sản phẩm thuộc Danh mục sản phẩm công nghệ cao được khuyến khích phát triển được hưởng ưu đãi như thế nào?",
+      "ground_truth_ids": [
+        43721,
+        43722
+      ],
+      "retrieved_top5_ids": [
+        43721,
+        43710,
+        51250,
+        52238,
+        43722
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (qwen/qwen3.8-27b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\nDoanh nghiệp thành lập mới từ dự án đầu tư sản xuất sản phẩm thuộc Danh mục sản phẩm công nghệ cao được khuyến khích phát triển được hưởng **ưu đãi cao nhất** theo quy định của pháp luật về:\n1.  Đất đai;\n2.  Thuế nhập khẩu;\n3.  Thuế thu nhập doanh nghiệp (khi có đủ điều kiện quy định tại khoản 1 Điều 18 của Luật Công nghệ cao);\n4.  Thuế giá trị gia tăng;\n5.  Thuế xuất k"
+    },
+    {
+      "query_id": 10357,
+      "query_text": "Áp dụng pháp luật trong tương trợ tư pháp được thực hiện ra sao?",
+      "ground_truth_ids": [
+        13778
+      ],
+      "retrieved_top5_ids": [
+        13778,
+        13779,
+        13836,
+        13838,
+        13837
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 0.6,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nÁp dụng pháp luật trong hoạt động tương trợ tư pháp được thực hiện **theo quy định của Luật này**; nếu luật không quy định thì **áp dụng pháp luật tố tụng dân sự, pháp luật tố tụng hình sự và các quy định pháp luật Việt Nam có liên quan**. Đồng thời, mọi hoạt động phải **tuân thủ các nguyên tắc quốc tế** (tôn trọng độc lập, chủ quyền, bình đẳng, có lợi cho các bên) và"
+    },
+    {
+      "query_id": 5753,
+      "query_text": "Doanh nghiệp bán hàng đa cấp phải giao đầy đủ hàng cho người tham gia bán hàng đa cấp trong thời hạn bao nhiêu ngày?",
+      "ground_truth_ids": [
+        36257
+      ],
+      "retrieved_top5_ids": [
+        36257,
+        36221,
+        36260,
+        36258,
+        36233
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\nDoanh nghiệp bán hàng đa cấp phải giao đầy đủ hàng cho người tham gia bán hàng đa cấp **trong thời hạn 30 ngày** kể từ ngày người tham gia thanh toán tiền mua hàng.\n\n### ⚖️ 2. CĂN CỨ PHÁP LÝ\n- **Văn bản:** 40/2018/NĐ-CP, **Điều ID: 36257**, Khoản 1.  \n- **Trích dẫn:** “Trong thời hạn **30 ngày** kể từ ngày người tham gia bán hàng đa cấp thanh toán tiền mua hàng, doanh n"
+    },
+    {
+      "query_id": 6849,
+      "query_text": "Ai có trách nhiệm đăng ký hành nghề cho công chứng viên?",
+      "ground_truth_ids": [
+        58789,
+        55717,
+        55705,
+        41209,
+        55706
+      ],
+      "retrieved_top5_ids": [
+        55717,
+        41194,
+        55751,
+        55699,
+        41285
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 0.33,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "**1️⃣ KẾT LUẬN TRỰC DIỆN**  \nTổ chức hành nghề công chứng (công ty, văn phòng công chứng, hợp danh…) có trách nhiệm đăng ký hành nghề cho công chứng viên của mình. Sở Tư pháp là cơ quan thực hiện đăng ký và cấp Thẻ công chứng viên.\n\n---\n\n**2️⃣ CĂN CỨ PHÁP LÝ**  \n\n| Văn bản | Điều khoản | Nội dung chính (trích dẫn ngắn) |\n|---------|------------|----------------------------------|\n| **Tài liệu #1 –"
+    },
+    {
+      "query_id": 8616,
+      "query_text": "Điều kiện đối với trái phiếu đặc biệt làm cơ sở tái cấp vốn, gia hạn tái cấp vốn được quy định như thế nào?",
+      "ground_truth_ids": [
+        2089,
+        2083
+      ],
+      "retrieved_top5_ids": [
+        2083,
+        2086,
+        2096,
+        2088,
+        2094
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \n- Để trái phiếu đặc biệt được chấp nhận làm cơ sở tái cấp vốn hoặc gia hạn tái cấp vốn, nó phải đáp ứng **các điều kiện sau**:  \n\n  1. **Sở hữu hợp pháp** của tổ chức tín dụng và **được lưu ký** tại Sở Giao dịch Ngân hàng Nhà nước.  \n  2. **Không đang trong quá trình thanh toán**.  \n  3. **Không nằm trong bảng kê** trái phiếu đặc biệt mà tổ chức tín dụng đang đề nghị "
+    },
+    {
+      "query_id": 1912,
+      "query_text": "Thời hạn kháng nghị bản án, quyết định hình sự theo thủ tục giám đốc thẩm được quy định ra sao?",
+      "ground_truth_ids": [
+        51809
+      ],
+      "retrieved_top5_ids": [
+        14568,
+        50999,
+        14566,
+        51809,
+        51815
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": false,
+      "citation_grounded_correct": false,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "### 1. KẾT LUẬN TRỰC DIỆN  \nThời hạn kháng nghị bản án, quyết định hình sự theo thủ tục giám đốc thẩm là **3 năm** tính từ ngày bản án, quyết định có hiệu lực pháp luật. Nếu đáp ứng các điều kiện quy định, thời hạn có thể kéo dài thêm **2 năm** (tổng cộng 5 năm).\n\n### 2. CĂN CỨ PHÁP LÝ  \n- **TÀI LIỆU #1 – Điều 14568**  \n  > “Người có thẩm quyền kháng nghị theo thủ tục giám đốc thẩm có quyền kháng "
+    },
+    {
+      "query_id": 4605,
+      "query_text": "Có bằng tốt nghiệp địa chính có được hành nghề tư vấn lập quy hoạch, kế hoạch sử dụng đất không?",
+      "ground_truth_ids": [
+        9505,
+        9717
+      ],
+      "retrieved_top5_ids": [
+        9505,
+        41902,
+        30474,
+        32190,
+        57112
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 0.5,
+      "backend": "Groq (qwen/qwen3.8-27b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\n**Có**, người có bằng tốt nghiệp chuyên ngành địa chính được phép hành nghề tư vấn lập quy hoạch, kế hoạch sử dụng đất, **nhưng** phải đáp ứng đồng thời các điều kiện về năng lực hành vi dân sự và thời gian công tác thực tế trong lĩnh vực này.\n\n### ⚖️ 2. CĂN CỨ PHÁP LÝ\nCăn cứ vào **Khoản 2 Điều 43/2014/NĐ-CP** (Văn bản ID: 43/2014/NĐ-CP | Điều ID: 9505), cá nhân được hà"
+    },
+    {
+      "query_id": 11996,
+      "query_text": "Thực hiện việc hoàn trả chi phí cho người tham dự đánh giá, cấp chứng chỉ kỹ năng nghề quốc gia?",
+      "ground_truth_ids": [
+        27631
+      ],
+      "retrieved_top5_ids": [
+        27631,
+        27629,
+        27627,
+        27632,
+        27616
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \n- Khi kỳ đánh giá kỹ năng nghề quốc gia bị hoãn hoặc hủy:  \n  1. **Nếu do lỗi của tổ chức đánh giá** → tổ chức phải hoàn trả **100 %** số tiền đã nộp cho người tham dự (tương ứng với giá trị dụng cụ, thiết bị, vật tư, nguyên, nhiên liệu chưa sử dụng).  \n  2. **Nếu do sự cố bất khả kháng** (bão, lụt, cháy, nổ, …) → tổ chức phải hoàn trả **50 %** giá trị trên.  \n- Hoàn "
+    },
+    {
+      "query_id": 5918,
+      "query_text": "Văn phòng đại diện tổ chức xúc tiến thương mại nước ngoài tại Việt Nam phải báo cáo định kỳ hằng năm vào thời gian nào?",
+      "ground_truth_ids": [
+        36339,
+        36333
+      ],
+      "retrieved_top5_ids": [
+        36337,
+        1979,
+        36334,
+        36333,
+        36336
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": false,
+      "citation_grounded_correct": false,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "### 1. KẾT LUẬN TRỰC DIỆN  \nKhông có căn cứ pháp lý trong các văn bản được cung cấp để xác định thời gian báo cáo định kỳ hằng năm cho Văn phòng đại diện của tổ chức xúc tiến thương mại nước ngoài tại Việt Nam.\n\n### 2. CĂN CỨ PHÁP LÝ  \n⚠️ **THÔNG BÁO THIẾU CĂN CỨ**  \nDựa trên các văn bản luật được cung cấp, không có đủ căn cứ pháp lý để giải đáp câu hỏi này.\n\n### 3. LƯU Ý & ĐIỀU KIỆN ÁP DỤNG  \nKhô"
+    },
+    {
+      "query_id": 3275,
+      "query_text": "Làm giám đốc công ty hợp danh khi là thành viên góp vốn công ty hợp danh hay không? Admin cho em hỏi thành viên góp vốn trong công ty hợp danh có thể làm giám đốc công ty không ạ?",
+      "ground_truth_ids": [
+        55619
+      ],
+      "retrieved_top5_ids": [
+        55614,
+        26336,
+        55621,
+        26333,
+        55619
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nThành viên góp vốn **không** được làm Giám đốc (hoặc Tổng giám đốc) công ty hợp danh, trừ khi Điều lệ công ty có quy định cho phép khác. Theo quy định pháp luật, vị trí Giám đốc chỉ được giao cho **thành viên hợp danh** (cá nhân chịu trách nhiệm vô hạn).\n\n---\n\n**⚖️ 2. CĂN CỨ PHÁP LÝ**  \n\n| Văn bản | Điều/ Khoản | Nội dung liên quan |\n|---------|-------------|---------"
+    },
+    {
+      "query_id": 3979,
+      "query_text": "Nếu người lao động không nghỉ việc khi nhận con nuôi thì mức trợ cấp bảo hiểm xã hội một lần được hưởng sẽ là bao nhiêu tiền?",
+      "ground_truth_ids": [
+        17679,
+        17684,
+        17686,
+        13370,
+        13371,
+        28189
+      ],
+      "retrieved_top5_ids": [
+        57535,
+        17709,
+        28189,
+        57543,
+        17711
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": false,
+      "citation_grounded_correct": false,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-20b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN  \n**⚠️ THÔNG BÁO THIẾU CĂN CỨ**  \nDựa trên các văn bản luật được cung cấp, không có đủ căn cứ pháp lý để xác định số tiền trợ cấp một lần khi người lao động không nghỉ việc khi nhận con nuôi.\n\n### ⚖️ 2. CĂN CỨ PHÁP LÝ  \n- **Tài liệu #2 (58/2014/QH13)**: “Người lao động nhận nuôi con nuôi dưới 06 tháng tuổi không nghỉ việc thì chỉ được hưởng trợ cấp một lần quy định tại "
+    },
+    {
+      "query_id": 9695,
+      "query_text": "Từ chối kết quả trúng đấu giá tài sản của Bộ Quốc phòng như thế nào?",
+      "ground_truth_ids": [
+        5632
+      ],
+      "retrieved_top5_ids": [
+        5632,
+        5633,
+        9038,
+        9039,
+        5625
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (qwen/qwen3.8-27b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\nViệc từ chối kết quả trúng đấu giá tài sản của Bộ Quốc phòng được xử lý theo hai phương thức đấu giá:\n1. **Phương thức trả giá lên:** Người trả giá liền kề sẽ là người trúng đấu giá nếu giá liền kề cộng với tiền đặt trước ít nhất bằng giá của người từ chối và người liền kề chấp nhận mua. Nếu không thỏa mãn điều kiện này, cuộc đấu giá **không thành**.\n2. **Phương thức đặ"
+    },
+    {
+      "query_id": 10936,
+      "query_text": "Chính sách ưu đãi đầu tư phát triển kinh tế trên các đảo và hoạt động trên biển được thực hiện như thế nào?",
+      "ground_truth_ids": [
+        21314
+      ],
+      "retrieved_top5_ids": [
+        21314,
+        21273,
+        10109,
+        48259,
+        51251
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (openai/gpt-oss-120b)",
+      "answer_preview": "**🎯 1. KẾT LUẬN TRỰC DIỆN**  \nChính sách ưu đãi đầu tư phát triển kinh tế trên các đảo và hoạt động trên biển được thực hiện bằng cách:  \n\n- Ưu tiên đầu tư cơ sở hạ tầng, mạng lưới hậu cần và các dự án kinh tế trên đảo (có chính sách ưu đãi).  \n- Cung cấp các ưu đãi về thuế, vốn, vay ưu đãi, cho thuê/điều chỉnh đất, mặt nước, khu vực biển.  \n- Đưa ra các ưu đãi tài chính (giảm/miễn thuế, vay ưu đã"
+    },
+    {
+      "query_id": 323,
+      "query_text": "Việc công chứng văn bản thỏa thuận phân chia di sản được tiến hành như thế nào?",
+      "ground_truth_ids": [
+        55739
+      ],
+      "retrieved_top5_ids": [
+        55739,
+        3628,
+        55740,
+        55725,
+        55722
+      ],
+      "context_hit_top5": true,
+      "answered_successfully": true,
+      "citation_grounded_correct": true,
+      "grounding_score": 1.0,
+      "backend": "Groq (qwen/qwen3.8-27b)",
+      "answer_preview": "### 🎯 1. KẾT LUẬN TRỰC DIỆN\nViệc công chứng văn bản thỏa thuận phân chia di sản được tiến hành theo quy trình: Người thừa kế (theo pháp luật hoặc di chúc không xác định rõ phần hưởng) yêu cầu công chứng; Công chứng viên kiểm tra tư cách chủ thể và quyền sở hữu tài sản; Tổ chức hành nghề công chứng phải **niêm yết việc thụ lý** trước khi thực hiện công chứng. Thời hạn công chứng không quá 02 ngày l"
+    }
+  ]
+}

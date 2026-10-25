@@ -1,0 +1,12 @@
+{
+  "model_name": "HybridRetriever",
+  "fusion_method": "weighted_rrf",
+  "k_rrf": 5,
+  "w_dense": 0.75,
+  "w_bm25": 0.25,
+  "candidate_depth": 100,
+  "sub_retrievers": {
+    "dense": "data/indices/dense_bge_m3",
+    "bm25": "data/indices/bm25_index.pkl"
+  }
+}

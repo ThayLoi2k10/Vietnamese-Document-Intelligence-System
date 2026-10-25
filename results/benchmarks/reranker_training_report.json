@@ -1,0 +1,91 @@
+{
+  "completed_at": "2026-10-25 23:13:00",
+  "colab_gpu": {
+    "status": "ok",
+    "cuda_available": true,
+    "gpu_name": "Tesla T4",
+    "vram_gb": 14.56,
+    "torch_version": "2.11.0+cu130"
+  },
+  "hyperparameters": {
+    "epochs": 3,
+    "lr": 0.0002,
+    "lora_r": 16,
+    "lora_alpha": 32.0,
+    "max_length": 384,
+    "group_negs": 4,
+    "grad_accum": 4,
+    "margin": 1.0
+  },
+  "epoch_history": [
+    {
+      "type": "epoch_done",
+      "ts": 1792944231.81,
+      "epoch": 1,
+      "val_metrics": {
+        "ndcg10": 0.6736,
+        "mrr10": 0.6805,
+        "hit1": 57.55,
+        "hit3": 76.64,
+        "alpha": 0.55,
+        "pool_size": 15
+      },
+      "is_best": true,
+      "message": "Epoch 1/3 hoàn tất | Val nDCG@10=0.6736 | MRR@10=0.6805 | Hit@1=57.55% | Hit@3=76.64% (alpha=0.55, pool=15) [NEW BEST ✅]"
+    },
+    {
+      "type": "epoch_done",
+      "ts": 1792944471.92,
+      "epoch": 2,
+      "val_metrics": {
+        "ndcg10": 0.6819,
+        "mrr10": 0.6874,
+        "hit1": 57.26,
+        "hit3": 78.92,
+        "alpha": 0.55,
+        "pool_size": 20
+      },
+      "is_best": true,
+      "message": "Epoch 2/3 hoàn tất | Val nDCG@10=0.6819 | MRR@10=0.6874 | Hit@1=57.26% | Hit@3=78.92% (alpha=0.55, pool=20) [NEW BEST ✅]"
+    },
+    {
+      "type": "epoch_done",
+      "ts": 1792944711.28,
+      "epoch": 3,
+      "val_metrics": {
+        "ndcg10": 0.6822,
+        "mrr10": 0.6916,
+        "hit1": 58.12,
+        "hit3": 78.35,
+        "alpha": 0.45,
+        "pool_size": 20
+      },
+      "is_best": true,
+      "message": "Epoch 3/3 hoàn tất | Val nDCG@10=0.6822 | MRR@10=0.6916 | Hit@1=58.12% | Hit@3=78.35% (alpha=0.45, pool=20) [NEW BEST ✅]"
+    }
+  ],
+  "summary": {
+    "type": "completed",
+    "ts": 1792944711.3,
+    "weights_size_mb": 7.37,
+    "best_val": {
+      "ndcg10": 0.6822,
+      "mrr10": 0.6916,
+      "hit1": 58.12,
+      "hit3": 78.35,
+      "alpha": 0.45,
+      "pool_size": 20
+    },
+    "zero_shot_val": {
+      "ndcg10": 0.6336,
+      "mrr10": 0.6291,
+      "hit1": 50.43,
+      "hit3": 72.65,
+      "alpha": 0.35,
+      "pool_size": 20
+    },
+    "message": "Huấn luyện hoàn tất! Trọng số đã sẵn sàng tải về (7.37 MB)."
+  },
+  "saved_weights_path": "data\\indices\\reranker_finetuned\\lora_reranker_weights.pt",
+  "saved_weights_bytes": 7725571
+}

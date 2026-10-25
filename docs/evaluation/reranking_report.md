@@ -162,5 +162,31 @@ Các tệp kết quả và mã nguồn hoàn chỉnh đã được lưu trữ v�
 6. Bảng so sánh đa hệ thống: [results/benchmarks/reranker_vs_baselines_comparison.json](file:///D:/PROJECT/PROJECT%202/results/benchmarks/reranker_vs_baselines_comparison.json)
 7. Thư viện Reranking:
    - Module độc lập: [src/retrieval/reranking/cross_encoder.py](file:///D:/PROJECT/PROJECT%202/src/retrieval/reranking/cross_encoder.py)
+   - Module Fine-tuned LoRA: [src/retrieval/reranking/finetuned_reranker.py](file:///D:/PROJECT/PROJECT%202/src/retrieval/reranking/finetuned_reranker.py)
    - Adapter RAG Phase 9: [src/rag/reranking/adapters/cross_encoder_reranker.py](file:///D:/PROJECT/PROJECT%202/src/rag/reranking/adapters/cross_encoder_reranker.py)
 8. Bộ unit test: [tests/test_reranker.py](file:///D:/PROJECT/PROJECT%202/tests/test_reranker.py) (5/5 tests passed).
+
+---
+
+## 9. Thực Nghiệm Bổ Sung: Domain Fine-Tuning với LoRA & In-domain Hard Negatives (2026-10-25)
+
+Thực hiện đúng lộ trình tại Mục 7.2, mô hình `BAAI/bge-reranker-base` đã được fine-tune trực tiếp trên miền văn bản quy phạm pháp luật Việt Nam:
+
+1. **Dữ liệu Huấn luyện & Kiểm định (Zero Data Leakage):**
+   - **Tập Train (`data/training/reranker_train_groups.jsonl`):** 1,401 câu hỏi từ `retrieval_dev_train.json`, khai phá **1,873 Positives** và **9,807 In-domain Hard Negatives** (các ứng viên nằm trong Top-20 của Hybrid Weighted RRF nhưng không phải điều luật chuẩn).
+   - **Tập Validation (`data/training/reranker_val_candidates.jsonl`):** 351 câu hỏi từ `retrieval_dev_val.json` (tách biệt hoàn toàn với 438 câu `retrieval_test.json`).
+2. **Cấu hình Huấn luyện (trên GPU Tesla T4 qua Cloudflare Tunnel):**
+   - **Kiến trúc:** Gắn LoRA ($r=16, \alpha=32$) vào toàn bộ 72 tầng `nn.Linear` của 12 lớp Transformer (`query`, `key`, `value`, `attention.output.dense`, `intermediate.dense`, `output.dense`) và mở khóa tầng `classifier` (`3,245,569 / 280,698,625` tham số huấn luyện — chiếm `1.16%`).
+   - **Hàm mất mát:** Kết hợp ListNet Cross-Entropy Loss và Pairwise Margin Ranking Loss ($\text{margin} = 1.0$), kết hợp điểm ưu tiên Tầng 1 (Hybrid RRF Prior) với hệ số tối ưu trên tập Validation ($\alpha = 0.45$, $\text{pool\_size} = 20$).
+   - **Trọng số lưu trữ:** `data/indices/reranker_finetuned/lora_reranker_weights.pt` (`7.37 MB`).
+3. **Kết quả Đối chuẩn trên 438 Câu Hỏi Frozen Test (`retrieval_test.json`):**
+
+| Hệ thống / Cấu hình | Hit@1 (%) | Hit@3 (%) | Hit@5 (%) | Hit@10 (%) | MRR@10 | nDCG@10 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1. BM25 Tuned** (Phase 5) | 32.88% | 56.16% | 63.70% | 74.43% | 0.4610 | 0.4866 |
+| **2. Dense BGE-M3** (Phase 6) | 48.63% | 69.86% | 79.00% | 86.99% | 0.6146 | 0.6277 |
+| **3. Hybrid Weighted RRF** (Phase 11) | 50.68% | 73.52% | 81.28% | 87.67% | 0.6366 | 0.6448 |
+| **4. Hybrid + Reranker (Pretrained Zero-shot)** | 43.84% | 64.84% | 72.15% | 84.47% | 0.5656 | 0.5830 |
+| **5. Hybrid + Reranker (Fine-tuned LoRA)** | **57.76%** | **77.85%** | **84.47%** | **89.95%** | **0.6902** | **0.6911** |
+
+- **Kết luận:** Fine-tuning với In-domain Hard Negatives đã khắc phục triệt để hiện tượng sụt giảm điểm của mô hình Zero-shot, nâng **nDCG@10 từ `0.5830` (Zero-shot) và `0.6448` (Hybrid) lên `0.6911`**, đồng thời đẩy **Hit@1 lên `57.76%` (+7.08% so với Hybrid)** và **Hit@5 lên `84.47%`**.
