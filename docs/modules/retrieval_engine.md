@@ -17,6 +17,7 @@ src/retrieval/
 ├── base.py                   # Abstract Base Class BaseRetriever & RetrievalResult dataclass
 ├── bm25_retriever.py         # Okapi BM25 Inverted Index với NumPy scoring vector hóa
 ├── tfidf_retriever.py        # Scikit-learn Sparse TF-IDF Vectorizer
+├── dense_hf_retriever.py     # HFDenseRetriever (BGE-M3 dùng thuần transformers + FAISS, tránh phụ thuộc FlagEmbedding)
 ├── chunked_retriever.py      # Retriever bọc dữ liệu phân đoạn (Chunks) kèm Max-pooling
 ├── dense/                    # Tầng truy xuất Dense Bi-Encoder
 │   ├── encoder.py            # BGE-M3 Dense Embedding extractor (1024-d, L2 normalized)
@@ -36,7 +37,8 @@ src/retrieval/
 │   └── rebuild.py            # Khôi phục & Rebuild chỉ mục
 └── reranking/                # Tầng Cross-Encoder Reranker
     ├── models.py             # Data models cho reranker candidates
-    └── reranker.py           # FlagReranker wrapper cho BAAI/bge-reranker-base
+    ├── reranker.py           # FlagReranker wrapper cho BAAI/bge-reranker-base (Zero-shot)
+    └── finetuned_reranker.py # FinetunedLegalReranker (LoRA r=16 + Residual Hybrid Fusion α=0.45)
 ```
 
 ---
@@ -71,7 +73,11 @@ class BaseRetriever(ABC):
 * **Cơ chế:** Kích hoạt song song `dense_retriever.search(query, top_k=100)` và `bm25_retriever.search(query, top_k=100)`, sau đó gọi `weighted_reciprocal_rank_fusion` để tính điểm tổng hợp:
   $$\text{Score}(d) = 0.75 \cdot \frac{1}{5 + r_{\text{dense}}(d)} + 0.25 \cdot \frac{1}{5 + r_{\text{bm25}}(d)}$$
 
-### C. `QdrantVectorStore` (`src/retrieval/indexing/qdrant_store.py`)
+### C. `HFDenseRetriever` (`src/retrieval/dense_hf_retriever.py`) & `FinetunedLegalReranker` (`src/retrieval/reranking/finetuned_reranker.py`)
+* **`HFDenseRetriever`:** Lớp truy xuất ngữ nghĩa BGE-M3 sử dụng thuần `transformers` (`AutoTokenizer`, `AutoModel`) và `faiss.IndexFlatIP`, hỗ trợ nạp trực tiếp cả `embeddings.f32.npy` lẫn `index.faiss` mà không cần `FlagEmbedding` / `datasets`.
+* **`FinetunedLegalReranker`:** Bộ tái xếp hạng Cross-Encoder đã huấn luyện chuyên biệt cho Pháp luật Việt Nam, gộp trực tiếp 72 ma trận LoRA (`r=16, alpha=32`) và `classifier` head từ `data/indices/reranker_finetuned/lora_reranker_weights.pt` vào `BAAI/bge-reranker-base`, đồng thời kết hợp điểm ưu tiên Tầng 1 theo công thức Residual Hybrid Fusion ($\alpha = 0.45$), đạt **Hit@1 = 57.76%, Hit@5 = 84.47%, nDCG@10 = 0.6911** trên tập Frozen Test (438 truy vấn).
+
+### D. `QdrantVectorStore` (`src/retrieval/indexing/qdrant_store.py`)
 * **Trách nhiệm:** Lưu trữ persistent vector 1024 chiều cục bộ tại `data/indices/qdrant_legal/`.
 * **Phương thức chính:**
   * `upsert_batch(points: list[VectorPoint])`: Nạp lặp an toàn (idempotent) với point_id dạng UUID v5.

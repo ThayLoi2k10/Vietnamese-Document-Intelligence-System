@@ -21,6 +21,7 @@ Chào mừng bạn đến với trung tâm tài liệu kỹ thuật của dự �
 | **Phase 12** | **Cross-Encoder Reranking** | Đánh giá Cross-Encoder, phân tích Negative Dilution & độ trễ GPU | [Xem tài liệu](phases/phase12_cross_encoder_reranking.md) |
 | **Phase 13** | **Query Processing Pipeline** | Normalizer 48+ từ viết tắt, Qwen2.5 Rewriter, Information Loss Gate | [Xem tài liệu](phases/phase13_query_processing.md) |
 | **Phase 14** | **FastAPI Serving & Backend** | Đóng gói REST API `/health`, `/search`, `/query`, sẵn sàng Docker | [Xem tài liệu](phases/phase14_api_serving_architecture.md) |
+| **Phase 15** | **LoRA Reranker Fine-Tuning & Docker UI** | Đào Hard Negatives, Fine-tune LoRA (`Hit@1=57.76%, nDCG@10=0.6911`), Streamlit & Docker | [Xem tài liệu](phases/phase15_lora_reranker_finetuning_and_serving.md) |
 
 ---
 
