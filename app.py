@@ -116,6 +116,8 @@ def _ensure_remote_file(path: Path, rel_url: str, min_size: int = 1_000_000):
 
 @st.cache_resource(show_spinner="Đang nạp cơ sở dữ liệu luật (59,636 điều)...")
 def load_corpus() -> Dict[int, Dict[str, Any]]:
+    import gc
+
     _ensure_remote_file(DEFAULT_CORPUS_PATH, "data/processed/legal_retrieval/corpus_articles_preprocessed.parquet", min_size=10_000_000)
     corpus: Dict[int, Dict[str, Any]] = {}
     if DEFAULT_CORPUS_PATH.exists():
@@ -124,14 +126,17 @@ def load_corpus() -> Dict[int, Dict[str, Any]]:
                 DEFAULT_CORPUS_PATH,
                 columns=["global_article_id", "law_id", "aid", "text"],
             )
-            df = table.to_pandas()
-            for _, row in df.iterrows():
-                gid = int(row["global_article_id"])
-                corpus[gid] = {
-                    "law_id": str(row["law_id"]),
-                    "aid": str(row["aid"]),
-                    "text": str(row["text"]),
-                }
+            gids = table["global_article_id"].to_pylist()
+            lids = table["law_id"].to_pylist()
+            aids = table["aid"].to_pylist()
+            txts = table["text"].to_pylist()
+            del table
+            corpus = {
+                int(g): {"law_id": str(l), "aid": str(a), "text": str(x)}
+                for g, l, a, x in zip(gids, lids, aids, txts)
+            }
+            del gids, lids, aids, txts
+            gc.collect()
         except Exception:
             try:
                 DEFAULT_CORPUS_PATH.unlink(missing_ok=True)
@@ -172,6 +177,17 @@ def load_hybrid(_bm25_retriever):
     try:
         if _bm25_retriever is None:
             return None, "Chưa có chỉ mục BM25."
+        if not (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists():
+            _ensure_remote_file(
+                DEFAULT_DENSE_INDEX_DIR / "index.faiss",
+                "data/indices/dense_bge_m3/index.faiss",
+                min_size=200_000_000,
+            )
+            _ensure_remote_file(
+                DEFAULT_DENSE_INDEX_DIR / "corpus_ids.json",
+                "data/indices/dense_bge_m3/corpus_ids.json",
+                min_size=100_000,
+            )
         has_dense_index = (
             (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists()
             or (DEFAULT_DENSE_INDEX_DIR / "index.faiss").exists()
@@ -572,7 +588,7 @@ def main():
     laws_catalog = get_laws_catalog(corpus)
     bm25_retriever = load_bm25()
     hybrid_retriever, hybrid_error = load_hybrid(bm25_retriever)
-    finetuned_reranker = load_finetuned_reranker() if hybrid_retriever else None
+    finetuned_reranker = load_finetuned_reranker()
     normalizer = load_normalizer()
     contextualizer = load_contextualizer()
     compressor = load_compressor()
@@ -597,11 +613,8 @@ def main():
             "BM25 tuned (Phase 5): nDCG@10 = 0.4866, nhanh nhất.",
         )
         if not hybrid_retriever:
-            st.caption(
-                "ℹ️ Chế độ Cloud 1GB RAM: đang dùng **BM25 Tuned** (`k1=1.80, b=0.85`). "
-                "Mô hình **Hybrid BGE-M3 + LoRA Reranker** tự động kích hoạt khi chạy Local."
-            )
-        if finetuned_reranker and retriever_choice == RETRIEVER_HYBRID:
+            st.caption(f"ℹ️ Hybrid chưa sẵn sàng ({hybrid_error}) — đang dùng BM25.")
+        if finetuned_reranker:
             st.success(f"✅ Đã kích hoạt LoRA Legal Reranker (α={finetuned_reranker.fusion_alpha})")
         top_k = st.slider("Số điều luật trích xuất (Top-K):", min_value=1, max_value=10, value=5)
 
@@ -627,7 +640,7 @@ def main():
             st.rerun()
 
     active_retriever = hybrid_retriever if retriever_choice == RETRIEVER_HYBRID else bm25_retriever
-    active_reranker = finetuned_reranker if retriever_choice == RETRIEVER_HYBRID else None
+    active_reranker = finetuned_reranker if (retriever_choice == RETRIEVER_HYBRID or not hybrid_retriever) else None
 
     # Session states
     if "messages" not in st.session_state:

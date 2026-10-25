@@ -58,10 +58,14 @@ class FinetunedLegalReranker:
         if self._model is not None:
             return
 
+        import gc
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(self.base_model_name)
-        model = AutoModelForSequenceClassification.from_pretrained(self.base_model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            self.base_model_name,
+            low_cpu_mem_usage=True,
+        )
 
         if self.weights_path.exists():
             ckpt = torch.load(self.weights_path, map_location="cpu", weights_only=False)
@@ -97,8 +101,11 @@ class FinetunedLegalReranker:
                     model.classifier.load_state_dict(classifier_state, strict=False)
 
             self.is_finetuned = merged_layers > 0
+            del ckpt, lora_state, classifier_state
 
-        self._model = model.to(self.device).eval()
+        target_dtype = torch.float16 if "cuda" in str(self.device) else torch.bfloat16
+        self._model = model.to(device=self.device, dtype=target_dtype).eval()
+        gc.collect()
 
     def score_pairs(self, query: str, texts: Sequence[str]) -> List[float]:
         """Tính điểm logit cho danh sách (query, điều luật) — sắp xếp theo độ dài để giảm padding trên CPU."""

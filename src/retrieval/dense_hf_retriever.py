@@ -43,13 +43,24 @@ class HFDenseRetriever(BaseRetriever):
     def _init_model(self) -> None:
         if self._model is not None:
             return
+        import gc
         import torch
         from transformers import AutoModel, AutoTokenizer
 
         if self.device is None:
             self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        model_dtype = torch.float16 if "cuda" in str(self.device) else torch.bfloat16
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
-        self._model = AutoModel.from_pretrained(self.model_name_or_path).to(self.device).eval()
+        self._model = (
+            AutoModel.from_pretrained(
+                self.model_name_or_path,
+                dtype=model_dtype,
+                low_cpu_mem_usage=True,
+            )
+            .to(self.device)
+            .eval()
+        )
+        gc.collect()
 
     def encode_queries(self, queries: List[str]) -> np.ndarray:
         import torch
