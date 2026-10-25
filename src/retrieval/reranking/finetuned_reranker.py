@@ -103,8 +103,7 @@ class FinetunedLegalReranker:
             self.is_finetuned = merged_layers > 0
             del ckpt, lora_state, classifier_state
 
-        target_dtype = torch.float16 if "cuda" in str(self.device) else torch.bfloat16
-        self._model = model.to(device=self.device, dtype=target_dtype).eval()
+        self._model = model.to(device=self.device).eval()
         gc.collect()
 
     def score_pairs(self, query: str, texts: Sequence[str]) -> List[float]:

@@ -65,6 +65,7 @@ BM25_TUNED_B = 0.85
 
 # Hai phương pháp truy xuất hiển thị cho người dùng
 RETRIEVER_HYBRID = "Hybrid (BM25 + BGE-M3) — chính xác nhất"
+RETRIEVER_BM25_LORA = "BM25 + LoRA Reranker (Fine-tuned) — chính xác nhất"
 RETRIEVER_BM25 = "BM25 — nhanh, nhẹ"
 
 # Thứ tự ưu tiên model Groq (model thực tế được lấy từ danh sách live của Groq)
@@ -177,17 +178,6 @@ def load_hybrid(_bm25_retriever):
     try:
         if _bm25_retriever is None:
             return None, "Chưa có chỉ mục BM25."
-        if not (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists():
-            _ensure_remote_file(
-                DEFAULT_DENSE_INDEX_DIR / "index.faiss",
-                "data/indices/dense_bge_m3/index.faiss",
-                min_size=200_000_000,
-            )
-            _ensure_remote_file(
-                DEFAULT_DENSE_INDEX_DIR / "corpus_ids.json",
-                "data/indices/dense_bge_m3/corpus_ids.json",
-                min_size=100_000,
-            )
         has_dense_index = (
             (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists()
             or (DEFAULT_DENSE_INDEX_DIR / "index.faiss").exists()
@@ -604,17 +594,19 @@ def main():
         st.title("⚖️ Cấu Hình RAG")
 
         st.subheader("1. Phương Pháp Truy Xuất")
-        retriever_options = [RETRIEVER_HYBRID, RETRIEVER_BM25] if hybrid_retriever else [RETRIEVER_BM25]
+        if hybrid_retriever:
+            retriever_options = [RETRIEVER_HYBRID, RETRIEVER_BM25]
+        elif finetuned_reranker:
+            retriever_options = [RETRIEVER_BM25_LORA, RETRIEVER_BM25]
+        else:
+            retriever_options = [RETRIEVER_BM25]
         retriever_choice = st.radio(
             "Retriever:",
             retriever_options,
             index=0,
-            help="Hybrid Weighted RRF (Phase 11): nDCG@10 = 0.6448 trên tập test. "
-            "BM25 tuned (Phase 5): nDCG@10 = 0.4866, nhanh nhất.",
+            help="Chế độ chính xác nhất kết hợp bộ tái xếp hạng LoRA Legal Reranker đã fine-tune.",
         )
-        if not hybrid_retriever:
-            st.caption(f"ℹ️ Hybrid chưa sẵn sàng ({hybrid_error}) — đang dùng BM25.")
-        if finetuned_reranker:
+        if finetuned_reranker and retriever_choice in (RETRIEVER_HYBRID, RETRIEVER_BM25_LORA):
             st.success(f"✅ Đã kích hoạt LoRA Legal Reranker (α={finetuned_reranker.fusion_alpha})")
         top_k = st.slider("Số điều luật trích xuất (Top-K):", min_value=1, max_value=10, value=5)
 
@@ -640,7 +632,11 @@ def main():
             st.rerun()
 
     active_retriever = hybrid_retriever if retriever_choice == RETRIEVER_HYBRID else bm25_retriever
-    active_reranker = finetuned_reranker if (retriever_choice == RETRIEVER_HYBRID or not hybrid_retriever) else None
+    active_reranker = (
+        finetuned_reranker
+        if retriever_choice in (RETRIEVER_HYBRID, RETRIEVER_BM25_LORA)
+        else None
+    )
 
     # Session states
     if "messages" not in st.session_state:

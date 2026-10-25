@@ -49,12 +49,10 @@ class HFDenseRetriever(BaseRetriever):
 
         if self.device is None:
             self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        model_dtype = torch.float16 if "cuda" in str(self.device) else torch.bfloat16
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
         self._model = (
             AutoModel.from_pretrained(
                 self.model_name_or_path,
-                dtype=model_dtype,
                 low_cpu_mem_usage=True,
             )
             .to(self.device)
