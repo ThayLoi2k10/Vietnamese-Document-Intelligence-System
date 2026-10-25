@@ -1,0 +1,26 @@
+# Virtual environments & caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Git history & IDE metadata
+.git/
+.vscode/
+.idea/
+
+# Local secrets (injected via env_file / environment at runtime)
+.env
+.streamlit/secrets.toml
+
+# Heavy raw/staging datasets & training scratch (data/ is mounted via volume in docker-compose)
+data/raw/
+data/training/
+data/processed/legal_documents/
+data/processed/legal_qa/
+data/processed/legal_retrieval/corpus_articles.parquet
+artifacts/
+*.log
+*.tmp

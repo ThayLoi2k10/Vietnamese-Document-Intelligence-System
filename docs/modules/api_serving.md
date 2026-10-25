@@ -81,13 +81,19 @@ Toàn bộ các trường hợp kiểm thử (Health check, Search với các re
 
 ---
 
-## Streamlit app (`app.py`) — cấu hình serving local đã kiểm thử (2026-10-25)
+## 6. Triển khai bằng Docker / Local (`app.py`, `Dockerfile`, `docker-compose.yml`)
 
-- **Retriever hiển thị cho người dùng (2 lựa chọn):**
-  - *Hybrid (BM25 + BGE-M3)* — mặc định. `HybridRetriever` weighted RRF theo `data/indices/hybrid_config.json` (k_rrf=5, w_dense=0.75, w_bm25=0.25, depth=100); nDCG@10 = 0.6448 (Phase 11).
-  - *BM25* — BM25 tuned (k1=1.80, b=0.85 được gán sau `load`), nDCG@10 = 0.4866 (Phase 5).
-  - Dense-only và Hybrid + Reranker đã bị bỏ khỏi UI: Dense-only kém Hybrid, còn reranker zero-shot làm giảm nDCG@10 (0.6096) và chậm (~580 ms/query trên GPU).
-- **Dense encoder dùng cho serving:** `src/retrieval/dense_hf_retriever.py` (`HFDenseRetriever`) dùng `transformers` thuần (CLS pooling + L2 normalize) trên `data/indices/dense_bge_m3/embeddings.f32.npy` có sẵn, không build lại. Lý do: `FlagEmbedding` import `datasets` → `pyarrow._dataset_parquet`, và DLL này bị Windows Application Control chặn trên máy dev. Đã kiểm tra: cosine giữa embedding encode lại và embedding đã lưu ≈ 1.000; truy vấn trên CPU ≈ 0.5 s.
-- **LLM (tự chọn, không có ô nhập key):** Groq (`GROQ_API_KEY` lấy từ `.env`/secrets; model lấy từ danh sách live theo thứ tự `qwen/qwen3.8-27b` → `openai/gpt-oss-120b` → …) → Ollama local (nếu đang chạy) → chế độ chỉ tra cứu. Gemini và Colab tunnel đã bị bỏ khỏi UI.
-- `.env` được đọc trực tiếp trong `app.py` (không phụ thuộc `python-dotenv`).
-- Chạy: `.\.venv\Scripts\python.exe -m streamlit run app.py`
+- **Kiến trúc Truy xuất & Tái xếp hạng Đầy đủ (Full Accuracy Stack):**
+  - *Hybrid (BM25 + BGE-M3) + Fine-tuned LoRA Legal Reranker* — mặc định. Kết hợp `HybridRetriever` weighted RRF (`data/indices/hybrid_config.json`) với bộ tái xếp hạng `FinetunedLegalReranker` (`src/retrieval/reranking/finetuned_reranker.py`) nạp trọng số `data/indices/reranker_finetuned/lora_reranker_weights.pt` (`Hit@1 = 57.76%`, `Hit@5 = 84.47%`, `nDCG@10 = 0.6911` trên 438 truy vấn test).
+  - *BM25* — BM25 tuned (`k1=1.80, b=0.85`), `nDCG@10 = 0.4866` (Phase 5).
+- **Dense encoder dùng cho serving:** `src/retrieval/dense_hf_retriever.py` (`HFDenseRetriever`) dùng `transformers` thuần (CLS pooling + L2 normalize) trên `embeddings.f32.npy` hoặc `index.faiss` (tự động tải về nếu máy mới clone repo chưa có sẵn).
+- **LLM (tự động chọn, không yêu cầu nhập key trên UI):** Groq (`GROQ_API_KEY` lấy từ `.env`; xoay vòng `openai/gpt-oss-120b` → `openai/gpt-oss-20b` → `qwen/qwen3.8-27b` với `max_tokens=750`) → Ollama local (`http://localhost:11434` hoặc `http://host.docker.internal:11434` khi chạy trong Docker) → chế độ chỉ tra cứu.
+- **Cách 1 — Chạy bằng Docker (Khuyên dùng khi đóng gói / bàn giao / đưa lên AWS):**
+  ```bash
+  docker compose up --build
+  ```
+  Sau khi container khởi động, mở trình duyệt tại `http://localhost:8501`.
+- **Cách 2 — Chạy trực tiếp trên máy Local:**
+  ```powershell
+  .\.venv\Scripts\python.exe -m streamlit run app.py
+  ```

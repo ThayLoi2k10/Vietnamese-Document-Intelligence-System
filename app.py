@@ -76,7 +76,7 @@ GROQ_MODEL_PRIORITY = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
 ]
-OLLAMA_URL = "http://localhost:11434"
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 
 def get_secret_or_env(key: str, default: str = "") -> str:
@@ -178,6 +178,17 @@ def load_hybrid(_bm25_retriever):
     try:
         if _bm25_retriever is None:
             return None, "Chưa có chỉ mục BM25."
+        if not (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists():
+            _ensure_remote_file(
+                DEFAULT_DENSE_INDEX_DIR / "index.faiss",
+                "data/indices/dense_bge_m3/index.faiss",
+                min_size=200_000_000,
+            )
+            _ensure_remote_file(
+                DEFAULT_DENSE_INDEX_DIR / "corpus_ids.json",
+                "data/indices/dense_bge_m3/corpus_ids.json",
+                min_size=100_000,
+            )
         has_dense_index = (
             (DEFAULT_DENSE_INDEX_DIR / "embeddings.f32.npy").exists()
             or (DEFAULT_DENSE_INDEX_DIR / "index.faiss").exists()

@@ -1,65 +1,43 @@
 # ==============================================================================
-# Docker Compose for Vietnamese Legal RAG System
+# Docker Compose — Vietnamese Legal Document Intelligence & RAG System
+# Chạy chỉ với 1 lệnh: docker compose up --build
+# Giao diện Web: http://localhost:8501
 # ==============================================================================
 
 services:
-  # ----------------------------------------------------------------------------
-  # Service 1: REST API Backend (FastAPI - Phase 17)
-  # ----------------------------------------------------------------------------
-  api:
+  legal_rag:
     build:
       context: .
       dockerfile: Dockerfile
     image: vietnamese-legal-rag:latest
-    container_name: legal_rag_api
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      # Mount data and indices dynamically from host to avoid giant images
-      - ./data:/app/data:ro
-      - ./configs:/app/configs:ro
-      # Mount host Hugging Face cache so models never need to download again
-      - ${USERPROFILE}/.cache/huggingface:/root/.cache/huggingface:ro
-    environment:
-      - PYTHONUNBUFFERED=1
-      - COLAB_URL=${COLAB_URL:-}
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-
-  # ----------------------------------------------------------------------------
-  # Service 2: Interactive Web Application (Streamlit - Phase 18)
-  # ----------------------------------------------------------------------------
-  ui:
-    image: vietnamese-legal-rag:latest
-    container_name: legal_rag_ui
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    container_name: vietnamese_legal_rag
     ports:
       - "8501:8501"
-    volumes:
-      - ./data:/app/data:ro
-      - ./app.py:/app/app.py
-      - ${USERPROFILE}/.cache/huggingface:/root/.cache/huggingface:ro
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PYTHONUNBUFFERED=1
-      - API_BACKEND_URL=http://api:8000
-      - COLAB_URL=${COLAB_URL:-}
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-    depends_on:
-      - api
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Mount ./data để dùng ngay embeddings.f32.npy / index.faiss sẵn có trên máy
+      # hoặc lưu chỉ mục tải tự động ở lần chạy đầu tiên
+      - ./data:/app/data
+      - ./app.py:/app/app.py:ro
+      - ./src:/app/src:ro
+      # Lưu cache mô hình BGE-M3 & BGE-Reranker cố định giữa các lần khởi động container
+      - huggingface_cache:/root/.cache/huggingface
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  huggingface_cache:
